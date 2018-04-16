@@ -2,7 +2,7 @@ import data
 import pyglet
 from pyglet.window import key, mouse
 import random
-
+import json
 from pyglet.gl import *
 
 
@@ -37,8 +37,8 @@ class Tile:
             s.draw()
         return s
     @classmethod
-    def get(name):
-        return alltiles.get(name)
+    def get(cls, name):
+        return cls.alltiles.get(name)
 
 class Level:
     def __init__(self, tw, th):
@@ -71,6 +71,36 @@ class Level:
             self.bs.append(t.draw(sx=tx*64, sy=ty*64, batch=self.b))
         self.b.draw()
         #del batch
+
+def loadmap(fn):
+    js= json.load(open(fn))
+    w=int(js['width'])
+    h=int(js['height'])
+    print 'wh:', w, h
+    level = Level(300,300)
+    data = js['layers'][0]['data']
+    ts = js['tilesets'][0]['tiles']
+    i=0
+    for n, tt in ts.items():
+        print tt
+        Tile(tt['image'], tt['image'])
+
+    for ny,x in xyrange(h,w):
+        y = h-1-ny
+        if x==0: print
+        try:
+            s=data[i]
+            if s == 0:
+                pass
+            else:
+                level.set_tile(x,y, Tile.get(ts[str(s-1)]['image']))
+            #print data[i],
+        except:
+            pass
+        i += 1
+
+    print
+    return level
 
 class MonsterImage:
     def __init__(self, image_name='pics/orc%s.png'):
@@ -148,7 +178,7 @@ def make_levelA():
 
 def process_input():
     game.player.reset_input()
-    print keys
+    #print keys
     if keys[key.LEFT] or keys[key.A]:
         game.player.in_a = True
     if keys[key.RIGHT] or keys[key.D]:
@@ -169,13 +199,13 @@ def process_input():
 def phym(m):
     assert isinstance(m, Monster)
     if m.in_a:
-        m.x -= 5
+        m.x -= 15
     if m.in_d:
-        m.x += 5
+        m.x += 15
     if m.in_w:
-        m.y += 5
+        m.y += 15
     if m.in_s:
-        m.y -= 5
+        m.y -= 15
 
 def phy(dt):
     process_input()
@@ -186,21 +216,30 @@ def on_draw():
     global frameno
     frameno += 1
     window.clear()
+    game.sky.draw()
+    #game.bg.draw()
     glPushMatrix(GL_MODELVIEW)
-    glTranslatef(300-game.player.x,0,0)
+    glTranslatef(window.width/2-game.player.x,
+                 window.height/2-game.player.y,0)
     game.level.draw()
     game.player.draw()
     glPopMatrix(GL_MODELVIEW)
+
 
     fps_display.draw()
 
 def main():
     print "qwe"
     pyglet.clock.schedule_interval(phy, 1/60.0)
-    game.level = make_levelA()
+    #game.level = make_levelA()
+    game.level = loadmap('data/map1.json')
     game.player = Monster('qwe')
     game.player.x = 100
     game.player.y = 100
 
     game.GTIEL = Tile('qwe','pics/orc1.png')
+    game.bg = pyglet.sprite.Sprite(pyglet.image.load(data.filepath('backgrounds/village.png')), x=0, y=0)
+    game.bg.scale = 8
+    game.sky = pyglet.sprite.Sprite(pyglet.image.load(data.filepath('sky/clouds.png')), x=0, y=0)
+    game.sky.scale = 8
     pyglet.app.run()
