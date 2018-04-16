@@ -3,10 +3,23 @@ import pyglet
 from pyglet.window import key, mouse
 import random
 
+from pyglet.gl import *
+
+
+keys = key.KeyStateHandler()
+
 def xyrange(w,h):
     for x in xrange(w):
         for y in xrange(h):
             yield x, y
+
+
+fps_display = pyglet.clock.ClockDisplay()
+frameno = 0
+# coord systems:
+# t - tile (1 = 1 tile)
+# s - screen (1 = 1 pixel, origin is bottom left corner of window)
+# m - map (1 = 1 pixel, origin is bottom left corner of map)
 
 class Tile:
     alltiles = {}
@@ -16,44 +29,85 @@ class Tile:
         else:
             self.image = None
         Tile.alltiles[name]=self
-    def draw(self, x,y):
+    def draw(self, sx, sy, batch=None):
         if self.image is None:
             return
-        s = pyglet.sprite.Sprite(self.image, x=x, y=y)
-        s.draw()
-
+        s = pyglet.sprite.Sprite(self.image, x=sx, y=sy, batch=batch)
+        if batch is not None:
+            s.draw()
+        return s
     @classmethod
     def get(name):
         return alltiles.get(name)
 
-
 class Level:
-    def __init__(self, w,h):
-        self.tiles = [None for i in xrange(w*h)]
-        self.w=w
-        self.h=h
+    def __init__(self, tw, th):
+        self.tiles = [Tile('air','') for i in xrange(tw*th)]
+        self.tw=tw
+        self.th=th
         self.monsters=[]
+        self.b = None
+        self.bs = []
 
-    def tile(self,x,y):
-        if 0 <= x < self.w and 0 <= y < self.h:
-            return self.tiles[x+self.h*y]
+    def tile(self,tx,ty):
+        if 0 <= tx < self.tw and 0 <= ty < self.th:
+            return self.tiles[tx+self.th*ty]
         return None
 
-    def set_tile(self,x,y,t):
-        if 0 <= x < self.w and 0 <= y < self.h:
-            self.tiles[x+self.h*y] = t
-    def draw(self):
-        for x, y in xyrange(self.w, self.h):
-            self.tile(x,y).draw(x*32,y*32)
+    def set_tile(self,tx,ty,t):
+        if 0 <= tx < self.tw and 0 <= ty < self.th:
+            self.tiles[tx+self.th*ty] = t
 
-class Moster:
-    def __init__(self):
+    def draw(self):
+        if self.b is not None and frameno > 1:
+            #print 'cached', self.batch
+            self.b.draw()
+            return
+
+        self.b = pyglet.graphics.Batch()
+        self.bs = []
+        for tx, ty in xyrange(self.tw, self.th):
+            t = self.tile(tx,ty)
+            self.bs.append(t.draw(sx=tx*64, sy=ty*64, batch=self.b))
+        self.b.draw()
+        #del batch
+
+class MonsterImage:
+    def __init__(self, image_name='pics/orc%s.png'):
+        pass
+class Monster:
+    def __init__(self, image_prefix):
         self.x = 0
         self.y = 0
         self.hp = 100
+        self.in_s = False
+        self.in_w = False
+        self.in_a = False
+        self.in_d = False
+        self.facing = 1
+        self.in_thrust = False
+        self.in_swing = False
+        self.in_kick = False
+        self.in_jump = False
+        self.img_still =  pyglet.image.load(data.filepath('pics/orc1.png'))
+    def reset_input(self):
+        self.in_s = False
+        self.in_w = False
+        self.in_a = False
+        self.in_d = False
+        self.in_thrust = False
+        self.in_swing = False
+        self.in_kick = False
+        self.in_jump = False
+
+    def draw(self):
+        s = pyglet.sprite.Sprite(self.img_still, x=self.x, y=self.y)
+        s.draw()
 
 class Game:
-    level = Level(10,10)
+    level = Level(2,2)
+    keys = {}
+    player = Monster('player')
 
 window = pyglet.window.Window()
 label = pyglet.text.Label('Hello, world',
@@ -63,11 +117,11 @@ label = pyglet.text.Label('Hello, world',
                           anchor_x='center', anchor_y='center')
                           
 game = Game()
-window.push_handlers(pyglet.window.event.WindowEventLogger())
+window.push_handlers(keys)
 
 def make_levelA():
-    w=100
-    h=100
+    w=32
+    h=32
     grass = Tile('grass','pics/grass.png')
     stone = Tile('stone','pics/wall.png')
     air = Tile('air', '')
@@ -76,42 +130,77 @@ def make_levelA():
     for x, y in xyrange(w, h):
         level.set_tile(x,y, grass)
 
-    return level
+    def add_platorm(px,py,pl):
+        for l in xrange(pl):
+            level.set_tile(px+l,py, stone)
+
+    add_platorm(0,1,100)
+    add_platorm(5,6,8)
+    add_platorm(2,8,3)
+
     for platform in xrange(20):
         px=random.randint(1,w-1)
         py=random.randint(1,h-1)
-        pl=random.randint(2,20)
-        for l in xrange(pl):
-            level.set_tile(px+l,py, stone)
+        pl=random.randint(2,5)
+        add_platorm(px,py,pl)
     return level
+
+
+def process_input():
+    game.player.reset_input()
+    print keys
+    if keys[key.LEFT] or keys[key.A]:
+        game.player.in_a = True
+    if keys[key.RIGHT] or keys[key.D]:
+        game.player.in_d = True
+    if keys[key.DOWN] or keys[key.S]:
+        game.player.in_s = True
+    if keys[key.UP] or keys[key.W]:
+        game.player.in_w = True
+
+    if keys[key.J]:
+        game.player.in_thrust = True
+    if keys[key.K]:
+        game.player.in_swing = True
+    if keys[key.L]:
+        game.player.in_kick = True
+
+
+def phym(m):
+    assert isinstance(m, Monster)
+    if m.in_a:
+        m.x -= 5
+    if m.in_d:
+        m.x += 5
+    if m.in_w:
+        m.y += 5
+    if m.in_s:
+        m.y -= 5
+
+def phy(dt):
+    process_input()
+    phym(game.player)
 
 @window.event
 def on_draw():
+    global frameno
+    frameno += 1
     window.clear()
-    label.draw()
-    #game.level.draw()
-    game.GTIEL.draw(0,0)
+    glPushMatrix(GL_MODELVIEW)
+    glTranslatef(300-game.player.x,0,0)
+    game.level.draw()
+    game.player.draw()
+    glPopMatrix(GL_MODELVIEW)
 
-@window.event
-def on_key_press(symbol, modifiers):
-    if symbol == key.A:
-        print('The "A" key was pressed.')
-    elif symbol == key.LEFT:
-        print('The left arrow key was pressed.')
-    elif symbol == key.ENTER:
-        print('The enter key was pressed.')
-
-
-@window.event
-def on_mouse_press(x, y, button, modifiers):
-    if button == mouse.LEFT:
-        print('The left mouse button was pressed.')
-
-
+    fps_display.draw()
 
 def main():
     print "qwe"
+    pyglet.clock.schedule_interval(phy, 1/60.0)
     game.level = make_levelA()
+    game.player = Monster('qwe')
+    game.player.x = 100
+    game.player.y = 100
 
-    game.GTIEL = Tile('qwe','pics/grass.png')
+    game.GTIEL = Tile('qwe','pics/orc1.png')
     pyglet.app.run()
