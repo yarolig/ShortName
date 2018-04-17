@@ -21,6 +21,11 @@ frameno = 0
 # s - screen (1 = 1 pixel, origin is bottom left corner of window)
 # m - map (1 = 1 pixel, origin is bottom left corner of map)
 
+AIR = 0
+PLATFORM = 1
+LADDER = 2
+SOLID = 3
+
 class Tile:
     alltiles = {}
     def __init__(self, name, fpath):
@@ -29,16 +34,49 @@ class Tile:
         else:
             self.image = None
         Tile.alltiles[name]=self
+        self.solid = AIR
     def draw(self, sx, sy, batch=None):
         if self.image is None:
             return
         s = pyglet.sprite.Sprite(self.image, x=sx, y=sy, batch=batch)
-        if batch is not None:
+        if batch is None:
             s.draw()
         return s
     @classmethod
     def get(cls, name):
         return cls.alltiles.get(name)
+
+
+class ItemType:
+    alltypes = {}
+    def __init__(self, name, fpath):
+        if fpath:
+            self.image = pyglet.image.load(data.filepath(fpath))
+        else:
+            self.image = None
+        ItemType.alltypes[name]=self
+        self.name = name
+        self.damage = 0
+        self.reach = 0
+
+    def draw(self, sx, sy, batch=None):
+        if self.image is None:
+            return
+        s = pyglet.sprite.Sprite(self.image, x=sx, y=sy, batch=batch)
+        if batch is None:
+            s.draw()
+        return s
+    @classmethod
+    def get(cls, name):
+        return cls.alltypes.get(name)
+
+class Item:
+    def __init__(self, itemtype):
+        self.x = 0
+        self.y = 0
+        self.itemtype = itemtype
+    def draw(self, sx, sy, batch=None):
+        self.itemtype.draw(sx, sy, batch)
 
 class Level:
     def __init__(self, tw, th):
@@ -57,6 +95,11 @@ class Level:
     def set_tile(self,tx,ty,t):
         if 0 <= tx < self.tw and 0 <= ty < self.th:
             self.tiles[tx+self.tw*ty] = t
+    def get_tx_ty_tile_at(self,mx,my):
+        tx = mx / 64
+        ty = my / 64
+        t = self.tile(tx, ty)
+        return (tx, ty, t)
 
     def draw(self):
         if self.b is not None and frameno > 1:
@@ -66,7 +109,7 @@ class Level:
 
         self.b = pyglet.graphics.Batch()
         self.bs = []
-        for tx, ty in xyrange(self.tw, self.th):
+        for tx, ty in xyrange(min(self.tw, 128), self.th):
             t = self.tile(tx,ty)
             self.bs.append(t.draw(sx=tx*64, sy=ty*64, batch=self.b))
         self.b.draw()
@@ -81,11 +124,26 @@ def loadmap(fn):
 
     data = js['layers'][0]['data']
     ts = js['tilesets'][0]['tiles']
+    tp = js['tilesets'][0]['tileproperties']
     i=0
     for n, tt in ts.items():
-        print tt
-        Tile(tt['image'], tt['image'])
+        print tt, tp[n]
+        if i > 1000:
+            t = Tile(tt['image'], '')
+        else:
+            t = Tile(tt['image'], tt['image'])
 
+        solid = tp[n].get('solid', 'stairs')
+        s = LADDER
+        if solid == 'air': s = AIR
+        if solid == 'solid': s = SOLID
+        if solid == 'stairs': s = LADDER
+        if solid == 'ladder': s = LADDER
+        if solid == 'platform': s = PLATFORM
+        if solid == 'roof': s = PLATFORM
+        t.solid = s
+        i+=1
+    i=0
     for ny,x in xyrange(h,w):
         y = h-1-ny
         if x==0: print
@@ -110,6 +168,15 @@ class Monster:
     def __init__(self, image_prefix):
         self.x = 0
         self.y = 0
+        self.vx = 0
+        self.vy = 0
+
+        self.right_hand = None
+        self.left_hand = None
+        self.armor = None
+        self.hat = None
+
+        self.jump_left = 0
         self.hp = 100
         self.in_s = False
         self.in_w = False
@@ -131,9 +198,27 @@ class Monster:
         self.in_kick = False
         self.in_jump = False
 
+    def refill_jump(self):
+        self.jump_left = 10
     def draw(self):
-        s = pyglet.sprite.Sprite(self.img_still, x=self.x, y=self.y)
+        s = pyglet.sprite.Sprite(self.img_still,
+                                x=self.x - 32 * self.facing,
+                                y=self.y)
+        if self.facing == -1:
+            s.scale_x = -1
+            s.position
         s.draw()
+        l = pyglet.text.Label('X',
+                              font_name='Times New Roman',
+                              font_size=4,
+                              x=self.x,y=self.y,
+                              anchor_x='center', anchor_y='center')
+        l.draw()
+        if self.right_hand:
+            #                                   hand_pos
+            self.right_hand.draw(sx=self.x - 32 + 25 * self.facing,
+                                 sy=self.y      + 32)
+
 
 class Game:
     level = Level(2,2)
@@ -189,6 +274,8 @@ def process_input():
     if keys[key.UP] or keys[key.W]:
         game.player.in_w = True
 
+    if keys[key.SPACE]:
+        game.player.in_jump = True
     if keys[key.J]:
         game.player.in_thrust = True
     if keys[key.K]:
@@ -197,16 +284,63 @@ def process_input():
         game.player.in_kick = True
 
 
-def phym(m):
-    assert isinstance(m, Monster)
-    if m.in_a:
-        m.x -= 15
-    if m.in_d:
-        m.x += 15
-    if m.in_w:
-        m.y += 15
+def phym(monster):
+    if True:
+        m = monster
+    else:
+        m = Monster() # for code completion
+    (tx, ty, t) = game.level.get_tx_ty_tile_at(m.x, m.y)
+    (belowtx, belowty, belowt) = game.level.get_tx_ty_tile_at(m.x, m.y - 12)
+
+    have_ground = False
+    on_stairs = False
+    if belowt and belowt.solid in (LADDER,):
+        on_stairs = True
+    #(1024 + m.y) % 64 < 16 and
+    if belowt and belowt.solid in (LADDER, PLATFORM, SOLID):
+        m.refill_jump()
+        have_ground = True
+
+
     if m.in_s:
-        m.y -= 15
+        if on_stairs:
+            m.vy = -15
+        # jump down
+        elif m.in_jump and belowt and belowt.solid in (LADDER, PLATFORM):
+            m.vy = -15
+    else:
+        if m.in_w and on_stairs:
+            m.vy = 15
+        # jump up
+        elif m.in_jump and m.jump_left > 0:
+            m.vy = 15
+            m.jump_left -= 1
+        else:
+            m.jump_left = 0
+            m.vy = 0 if have_ground else max(-15, m.vy - 3)
+
+    if m.in_a:
+        m.facing = -1
+        m.vx = max(m.vx - 2, -15)
+    elif m.in_d:
+        m.facing = 1
+        m.vx = min(m.vx + 2, 15)
+    else:
+        if m.vx > 2:
+            m.vx = m.vx - 2
+        elif m.vx < - 2:
+            m.vx = m.vx + 2
+        else:
+            m.vx = 0
+
+    (newx, newy, newt) = game.level.get_tx_ty_tile_at(m.x + m.vx,
+                                                      m.y + m.vy)
+    if newt:
+        print 'newt.solid', newt.solid, 'hg=', have_ground
+        if newt.solid in (AIR, PLATFORM, LADDER):
+            m.x = m.x + m.vx
+            m.y = m.y + m.vy
+
 
 def phy(dt):
     process_input()
@@ -226,21 +360,29 @@ def on_draw():
     game.player.draw()
     glPopMatrix(GL_MODELVIEW)
 
-
     fps_display.draw()
+
+def init_item_types():
+    sword=ItemType('sword', 'pics/sword.png')
+    spear=ItemType('spear', 'pics/spear.png')
+    staff=ItemType('staff', 'pics/staff.png')
+    dagger=ItemType('dagger', 'pics/dagger.png')
+
 
 def main():
     print "qwe"
     pyglet.clock.schedule_interval(phy, 1/60.0)
     #game.level = make_levelA()
+    init_item_types()
     game.level = loadmap('data/map1.json')
     game.player = Monster('qwe')
-    game.player.x = 100
-    game.player.y = 100
+    game.player.x = 300
+    game.player.y = 2200
+    game.player.right_hand = Item(ItemType.alltypes['sword'])
 
     game.GTIEL = Tile('qwe','pics/orc1.png')
-    game.bg = pyglet.sprite.Sprite(pyglet.image.load(data.filepath('backgrounds/village.png')), x=0, y=0)
-    game.bg.scale = 8
+    #game.bg = pyglet.sprite.Sprite(pyglet.image.load(data.filepath('backgrounds/village.png')), x=0, y=0)
+    #game.bg.scale = 8
     game.sky = pyglet.sprite.Sprite(pyglet.image.load(data.filepath('sky/clouds.png')), x=0, y=0)
     game.sky.scale = 1
     pyglet.app.run()
