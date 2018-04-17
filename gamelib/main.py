@@ -51,12 +51,12 @@ class Level:
 
     def tile(self,tx,ty):
         if 0 <= tx < self.tw and 0 <= ty < self.th:
-            return self.tiles[tx+self.th*ty]
+            return self.tiles[tx+self.tw*ty]
         return None
 
     def set_tile(self,tx,ty,t):
         if 0 <= tx < self.tw and 0 <= ty < self.th:
-            self.tiles[tx+self.th*ty] = t
+            self.tiles[tx+self.tw*ty] = t
 
     def draw(self):
         if self.b is not None and frameno > 1:
@@ -77,7 +77,8 @@ def loadmap(fn):
     w=int(js['width'])
     h=int(js['height'])
     print 'wh:', w, h
-    level = Level(300,300)
+    level = Level(w,h)
+
     data = js['layers'][0]['data']
     ts = js['tilesets'][0]['tiles']
     i=0
@@ -145,7 +146,7 @@ label = pyglet.text.Label('Hello, world',
                           font_size=36,
                           x=window.width//2, y=window.height//2,
                           anchor_x='center', anchor_y='center')
-                          
+
 game = Game()
 window.push_handlers(keys)
 
@@ -241,5 +242,5 @@ def main():
     game.bg = pyglet.sprite.Sprite(pyglet.image.load(data.filepath('backgrounds/village.png')), x=0, y=0)
     game.bg.scale = 8
     game.sky = pyglet.sprite.Sprite(pyglet.image.load(data.filepath('sky/clouds.png')), x=0, y=0)
-    game.sky.scale = 8
+    game.sky.scale = 1
     pyglet.app.run()
