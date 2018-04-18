@@ -52,6 +52,9 @@ class ItemType:
     def __init__(self, name, fpath):
         if fpath:
             self.image = pyglet.image.load(data.filepath(fpath))
+            self.image.anchor_x = 32
+            self.image.anchor_y = 5
+
         else:
             self.image = None
         ItemType.alltypes[name]=self
@@ -59,10 +62,12 @@ class ItemType:
         self.damage = 0
         self.reach = 0
 
-    def draw(self, sx, sy, batch=None):
+    def draw(self, sx, sy, angle=0, batch=None):
         if self.image is None:
             return
         s = pyglet.sprite.Sprite(self.image, x=sx, y=sy, batch=batch)
+        if angle:
+            s.rotation = angle
         if batch is None:
             s.draw()
         return s
@@ -75,8 +80,9 @@ class Item:
         self.x = 0
         self.y = 0
         self.itemtype = itemtype
-    def draw(self, sx, sy, batch=None):
-        self.itemtype.draw(sx, sy, batch)
+
+    def draw(self, sx, sy, angle, batch=None):
+        self.itemtype.draw(sx, sy, angle, batch)
 
 class Level:
     def __init__(self, tw, th):
@@ -115,6 +121,11 @@ class Level:
         self.b.draw()
         #del batch
 
+    def enum_monsters(self):
+        yield game.player
+        for i in self.monsters:
+            yield i
+
 def loadmap(fn):
     js= json.load(open(fn))
     w=int(js['width'])
@@ -123,8 +134,9 @@ def loadmap(fn):
     level = Level(w,h)
 
     data = js['layers'][0]['data']
-    ts = js['tilesets'][0]['tiles']
-    tp = js['tilesets'][0]['tileproperties']
+    tsf = json.load(open('data/tileset.json'))
+    ts = tsf['tiles'] #js['tilesets'][0]['tiles']
+    tp = tsf['tileproperties'] #js['tilesets'][0]['tileproperties']
     i=0
     for n, tt in ts.items():
         print tt, tp[n]
@@ -164,17 +176,103 @@ def loadmap(fn):
 class MonsterImage:
     def __init__(self, image_name='pics/orc%s.png'):
         pass
+
+
+class WeaponAnim:
+    XF = 0
+    Y = 1
+    ANGLE = 2
+    TIME = 3
+    HIT = 4
+    NEXT = 5
+    states = {
+    #           x*f y   angle  time hit next
+    'default': [25, 32, 0,      12, 0, []],
+    'thrust':  [15, 32, 105,    8,  1, ['thrust2']],
+    'thrust2': [45, 32, 90,     4,  0, ['default']],
+    'chop':    [25, 32, 40,     8,  1, ['chop2']],
+    'chop2':   [35, 32, 140,    4,  0, ['default']],
+    'cut':     [25, 32, -45,    4,  0, ['default','low']],
+    'rest':    [25, 20, 180,    4,  0, []],
+    'high':    [25, 55, -80,    4,  0, []],
+    'low':     [20, 35, 120,    4,  0, []],
+    }
+    def __init__(self):
+        self.src = 'default'
+        self.tgt = 'default'
+        self.time_left = 0
+        self.time_total = 0
+        self.state = WeaponAnim.states['default'][:]
+
+    def prn(self):
+        print "WA: src=%s tgt=%s t=(%s/%s) s=%s" % (
+                self.src, self.tgt,
+                self.time_left, self.time_total,
+                ",".join(str(s) for s in self.state))
+    def draw(self, m):
+        if m.right_hand is None:
+            return
+        m.right_hand.draw(
+            sx=m.x + self.state[self.XF] * m.facing,
+            sy=m.y + self.state[self.Y],
+            angle=self.state[self.ANGLE] * m.facing)
+
+    def update(self, m):
+        if self.time_left == 0:
+            return
+        self.time_left -= 1
+        x = 1.0 * self.time_left / self.time_total
+
+        for i in [self.XF, self.Y, self.ANGLE]:
+            self.state[i] = (WeaponAnim.states[self.src][i] * x +
+                             WeaponAnim.states[self.tgt][i] * (1.0 - x))
+        if self.time_left == 0:
+            if WeaponAnim.states[self.src][self.HIT]:
+                for mm in game.level.enum_monsters():
+                    if mm is m: continue
+                    hit = False
+                    ydist = 16
+                    xdist = 128
+                    if m.y - ydist <= mm.y <= m.y+ydist:
+                        if m.facing == 1:
+                            if m.x <= mm.x <= m.x + xdist:
+                                hit = True
+                        else:
+                            if m.x - xdist <= mm.x <= m.x:
+                                hit = True
+                    if hit:
+                        mm.vy += 5
+                        mm.vx += m.facing * 15
+
+            self.src = self.tgt
+            if WeaponAnim.states[self.tgt][self.NEXT]:
+                self.tgt = random.choice(WeaponAnim.states[self.tgt][self.NEXT])
+                self.time_left = WeaponAnim.states[self.tgt][self.TIME]
+                self.time_total = WeaponAnim.states[self.tgt][self.TIME]
+
+    def start_attack1(self, monster, tgt):
+        if self.time_left != 0:
+            # can't attack if previous attack not finished
+            return
+
+        self.tgt = tgt
+        self.time_left = WeaponAnim.states[self.tgt][self.TIME]
+        self.time_total = WeaponAnim.states[self.tgt][self.TIME]
+
 class Monster:
     def __init__(self, image_prefix):
         self.x = 0
         self.y = 0
         self.vx = 0
         self.vy = 0
+        self.speed = 15
+        self.jump_speed = 15
 
         self.right_hand = None
         self.left_hand = None
         self.armor = None
         self.hat = None
+        self.weapon_anim = WeaponAnim()
 
         self.jump_left = 0
         self.hp = 100
@@ -187,7 +285,7 @@ class Monster:
         self.in_swing = False
         self.in_kick = False
         self.in_jump = False
-        self.img_still =  pyglet.image.load(data.filepath('pics/orc1.png'))
+        self.img_still =  pyglet.image.load(data.filepath(image_prefix))
     def reset_input(self):
         self.in_s = False
         self.in_w = False
@@ -214,16 +312,17 @@ class Monster:
                               x=self.x,y=self.y,
                               anchor_x='center', anchor_y='center')
         l.draw()
-        if self.right_hand:
-            #                                   hand_pos
-            self.right_hand.draw(sx=self.x - 32 + 25 * self.facing,
-                                 sy=self.y      + 32)
+        self.weapon_anim.draw(self)
+        #if self.right_hand:
+        #    #                                   hand_pos
+        #    self.right_hand.draw(sx=self.x - 32 + 25 * self.facing,
+        #                         sy=self.y      + 32)
 
 
 class Game:
     level = Level(2,2)
     keys = {}
-    player = Monster('player')
+    player = Monster('pics/orc1.png')
 
 window = pyglet.window.Window()
 label = pyglet.text.Label('Hello, world',
@@ -304,27 +403,29 @@ def phym(monster):
 
     if m.in_s:
         if on_stairs:
-            m.vy = -15
+            m.vy = -m.jump_speed
         # jump down
         elif m.in_jump and belowt and belowt.solid in (LADDER, PLATFORM):
-            m.vy = -15
+            m.vy = -m.jump_speed
     else:
         if m.in_w and on_stairs:
-            m.vy = 15
+            m.vy = m.jump_speed
         # jump up
         elif m.in_jump and m.jump_left > 0:
-            m.vy = 15
+            m.vy = m.jump_speed
             m.jump_left -= 1
         else:
             m.jump_left = 0
-            m.vy = 0 if have_ground else max(-15, m.vy - 3)
+            m.vy = max(m.vy, 0) if have_ground else max(-15, m.vy - 3)
 
     if m.in_a:
-        m.facing = -1
-        m.vx = max(m.vx - 2, -15)
+        if m.weapon_anim.time_left == 0:
+            m.facing = -1
+        m.vx = max(m.vx - 2, -m.speed)
     elif m.in_d:
-        m.facing = 1
-        m.vx = min(m.vx + 2, 15)
+        if m.weapon_anim.time_left == 0:
+            m.facing = 1
+        m.vx = min(m.vx + 2, m.speed)
     else:
         if m.vx > 2:
             m.vx = m.vx - 2
@@ -333,18 +434,54 @@ def phym(monster):
         else:
             m.vx = 0
 
+    m.weapon_anim.update(m)
+    if m.in_swing:
+        m.weapon_anim.start_attack1(m, 'chop')
+
+    if m.in_thrust:
+        m.weapon_anim.start_attack1(m, 'thrust')
+    m.weapon_anim.prn()
+
     (newx, newy, newt) = game.level.get_tx_ty_tile_at(m.x + m.vx,
                                                       m.y + m.vy)
     if newt:
-        print 'newt.solid', newt.solid, 'hg=', have_ground
+        #print 'newt.solid', newt.solid, 'hg=', have_ground
         if newt.solid in (AIR, PLATFORM, LADDER):
             m.x = m.x + m.vx
             m.y = m.y + m.vy
 
 
+def aim(m):
+    m.reset_input()
+    player_sdist_sq = (game.player.x - m.x) ** 2 + (game.player.y - m.y) ** 2
+    if player_sdist_sq > (64 * 5) ** 2:
+        return
+    closing_dist = 100
+
+    good_facing = True
+    if game.player.x * m.facing < m.x * m.facing:
+        good_facing = False
+
+    if game.player.x + closing_dist < m.x:
+        m.in_a = True
+
+    if game.player.x - closing_dist > m.x:
+        m.in_d = True
+
+    if good_facing and player_sdist_sq < (closing_dist * 2) ** 2:
+        m.in_thrust = True
+    if not good_facing:
+        if m.facing == 1:
+            m.in_a = True
+        else:
+            m.in_d = True
+
 def phy(dt):
     process_input()
     phym(game.player)
+    for m in game.level.monsters:
+        aim(m)
+        phym(m)
 
 @window.event
 def on_draw():
@@ -357,6 +494,8 @@ def on_draw():
     glTranslatef(window.width/2-game.player.x,
                  window.height/2-game.player.y,0)
     game.level.draw()
+    for m in game.level.monsters:
+        m.draw()
     game.player.draw()
     glPopMatrix(GL_MODELVIEW)
 
@@ -375,10 +514,17 @@ def main():
     #game.level = make_levelA()
     init_item_types()
     game.level = loadmap('data/map1.json')
-    game.player = Monster('qwe')
+    game.player = Monster('pics/orc1.png')
     game.player.x = 300
     game.player.y = 2200
     game.player.right_hand = Item(ItemType.alltypes['sword'])
+
+    m = Monster('pics/orc1.png')
+    m.x = 600
+    m.y = 2600
+    m.right_hand = Item(ItemType.alltypes['sword'])
+    m.speed = 3
+    game.level.monsters.append(m)
 
     game.GTIEL = Tile('qwe','pics/orc1.png')
     #game.bg = pyglet.sprite.Sprite(pyglet.image.load(data.filepath('backgrounds/village.png')), x=0, y=0)
