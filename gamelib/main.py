@@ -158,7 +158,6 @@ def loadmap(fn):
     i=0
     for ny,x in xyrange(h,w):
         y = h-1-ny
-        if x==0: print
         try:
             s=data[i]
             if s == 0:
@@ -169,8 +168,13 @@ def loadmap(fn):
         except:
             pass
         i += 1
-
-    print
+    object_layer = js['layers'][1]['objects']
+    for o in object_layer:
+        print o
+        if o['type'] == 'monster':
+            print "found monster!!!"
+            create_monster(level, o['name'],
+                           int(o['x']), h*64-int(o['y']))
     return level
 
 class MonsterImage:
@@ -230,6 +234,7 @@ class WeaponAnim:
             if WeaponAnim.states[self.src][self.HIT]:
                 for mm in game.level.enum_monsters():
                     if mm is m: continue
+                    if mm.friendly: continue
                     hit = False
                     ydist = 16
                     xdist = 128
@@ -243,6 +248,8 @@ class WeaponAnim:
                     if hit:
                         mm.vy += 5
                         mm.vx += m.facing * 15
+                        damage_monster(mm, 10)
+
 
             self.src = self.tgt
             if WeaponAnim.states[self.tgt][self.NEXT]:
@@ -261,6 +268,8 @@ class WeaponAnim:
 
 class Monster:
     def __init__(self, image_prefix):
+        self.hp = 100
+        self.friendly = False
         self.x = 0
         self.y = 0
         self.vx = 0
@@ -306,12 +315,14 @@ class Monster:
             s.scale_x = -1
             s.position
         s.draw()
+        """
         l = pyglet.text.Label('X',
                               font_name='Times New Roman',
                               font_size=4,
                               x=self.x,y=self.y,
                               anchor_x='center', anchor_y='center')
         l.draw()
+        """
         self.weapon_anim.draw(self)
         #if self.right_hand:
         #    #                                   hand_pos
@@ -391,6 +402,10 @@ def phym(monster):
     (tx, ty, t) = game.level.get_tx_ty_tile_at(m.x, m.y)
     (belowtx, belowty, belowt) = game.level.get_tx_ty_tile_at(m.x, m.y - 12)
 
+    if m.hp <= 0:
+        m.y -= 20
+        return
+
     have_ground = False
     on_stairs = False
     if belowt and belowt.solid in (LADDER,):
@@ -440,7 +455,7 @@ def phym(monster):
 
     if m.in_thrust:
         m.weapon_anim.start_attack1(m, 'thrust')
-    m.weapon_anim.prn()
+    #m.weapon_anim.prn()
 
     (newx, newy, newt) = game.level.get_tx_ty_tile_at(m.x + m.vx,
                                                       m.y + m.vy)
@@ -454,6 +469,7 @@ def phym(monster):
 def aim(m):
     m.reset_input()
     player_sdist_sq = (game.player.x - m.x) ** 2 + (game.player.y - m.y) ** 2
+
     if player_sdist_sq > (64 * 5) ** 2:
         return
     closing_dist = 100
@@ -483,6 +499,10 @@ def phy(dt):
         aim(m)
         phym(m)
 
+def damage_monster(m, amount):
+    if m.friendly: return
+    m.hp -= amount
+
 @window.event
 def on_draw():
     global frameno
@@ -506,7 +526,83 @@ def init_item_types():
     spear=ItemType('spear', 'pics/spear.png')
     staff=ItemType('staff', 'pics/staff.png')
     dagger=ItemType('dagger', 'pics/dagger.png')
+    '''
+goblin
+goblin_citizen
+goblin_guard
+goblin_king
+goblin_trader
+goblin_robber
+goblin_shaman
+goblin_necromancer
 
+orc
+orc_citizen
+orc_guard
+orc_king
+orc_trader
+orc_bandit
+orc_shaman
+orc_necromancer
+
+troll
+troll_citizen
+troll_guard
+troll_king
+troll_trader
+troll_shaman
+troll_necromancer
+
+'''
+
+def give_weapon(m, desc):
+    if not desc:
+        return
+    m.right_hand = Item(ItemType.alltypes[random.choice(desc.split())])
+
+def create_monster(level, name, x, y):
+
+    monsters= {
+    'goblin':         ('pics/goblin1.png', 5, 30, 'staff'),
+    'goblin_citizen': ('pics/goblin1.png', 5, 30, ''),
+    'goblin_guard':   ('pics/goblin1.png', 5, 30, 'spear polearm'),
+    'goblin_king':    ('pics/goblin1.png', 5, 30, ''),
+    'goblin_trader':  ('pics/goblin1.png', 5, 30, ''),
+    'goblin_robber':  ('pics/goblin1.png', 5, 30, 'sword'),
+    'goblin_shaman':  ('pics/goblin1.png', 5, 30, 'staff'),
+    'goblin_necromancer': ('pics/goblin1.png', 5, 30, 'dagger'),
+    'orc':             ('pics/orc1.png', 5, 30, ''),
+    'orc_citizen':     ('pics/orc1.png', 5, 30, ''),
+    'orc_guard':       ('pics/orc1.png', 5, 30, 'spear polearm'),
+    'orc_king':        ('pics/orc1.png', 5, 30, ''),
+    'orc_trader':      ('pics/orc1.png', 5, 30, ''),
+    'orc_bandit':      ('pics/orc1.png', 5, 30, ''),
+    'orc_shaman':      ('pics/orc1.png', 5, 30, ''),
+    'orc_necromancer': ('pics/orc1.png', 5, 30, ''),
+    'troll':             ('pics/troll1.png', 5, 30, ''),
+    'troll_citizen':     ('pics/troll1.png', 5, 30, ''),
+    'troll_guard':       ('pics/troll1.png', 5, 30, ''),
+    'troll_king':        ('pics/troll1.png', 5, 30, ''),
+    'troll_trader':      ('pics/troll1.png', 5, 30, ''),
+    'troll_shaman':      ('pics/troll1.png', 5, 30, ''),
+    'troll_necromancer': ('pics/troll1.png', 5, 30, ''),
+    }
+
+    mm = monsters[name]
+    pic = mm[0]
+    m = Monster(pic)
+    m.x = x
+    m.y = y
+
+    friends = 'citizen guard trader king shaman necromancer'.split()
+    for f in friends:
+        if name.endswith(f):
+            m.friendly = True
+    give_weapon(m, mm[3])
+    m.speed = mm[1]
+    m.hp = mm[2]
+
+    level.monsters.append(m)
 
 def main():
     print "qwe"
@@ -519,13 +615,34 @@ def main():
     game.player.y = 2200
     game.player.right_hand = Item(ItemType.alltypes['sword'])
 
+    """
     m = Monster('pics/orc1.png')
     m.x = 600
     m.y = 2600
     m.right_hand = Item(ItemType.alltypes['sword'])
     m.speed = 3
+    m.hp = 30
     game.level.monsters.append(m)
 
+
+    m = Monster('pics/orc1.png')
+    m.x = 1600
+    m.y = 2600
+    m.right_hand = Item(ItemType.alltypes['spear'])
+    m.speed = 5
+    m.hp = 30
+    game.level.monsters.append(m)
+
+
+    m = Monster('pics/goblin1.png')
+    m.x = 2600
+    m.y = 2600
+    m.right_hand = Item(ItemType.alltypes['dagger'])
+    m.speed = 10
+    m.hp = 30
+    game.level.monsters.append(m)
+
+    """
     game.GTIEL = Tile('qwe','pics/orc1.png')
     #game.bg = pyglet.sprite.Sprite(pyglet.image.load(data.filepath('backgrounds/village.png')), x=0, y=0)
     #game.bg.scale = 8

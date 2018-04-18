@@ -123,6 +123,18 @@
                  "width":0,
                  "x":2654.66666666667,
                  "y":2097.33333333333
+                }, 
+                {
+                 "height":0,
+                 "id":15,
+                 "name":"goblin",
+                 "point":true,
+                 "rotation":0,
+                 "type":"monster",
+                 "visible":true,
+                 "width":0,
+                 "x":890.666666666667,
+                 "y":989.333333333333
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -130,7 +142,7 @@
          "x":0,
          "y":0
         }],
- "nextobjectid":15,
+ "nextobjectid":18,
  "orientation":"orthogonal",
  "renderorder":"right-up",
  "tiledversion":"1.1.4",
