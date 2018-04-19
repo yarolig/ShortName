@@ -47,7 +47,7 @@ class Tile:
 
 class ItemType:
     alltypes = {}
-    def __init__(self, name, fpath):
+    def __init__(self, name, fpath, damage=10, reach=10):
         if fpath:
             self.image = pyglet.image.load(data.filepath(fpath))
             self.image.anchor_x = 32
@@ -57,8 +57,8 @@ class ItemType:
             self.image = None
         ItemType.alltypes[name]=self
         self.name = name
-        self.damage = 0
-        self.reach = 0
+        self.damage = damage
+        self.reach = reach
 
     def draw(self, sx, sy, angle=0, batch=None):
         if self.image is None:
@@ -88,8 +88,10 @@ class Level:
         self.tw=tw
         self.th=th
         self.monsters=[]
+        self.items=[]
         self.b = None
         self.bs = []
+        self.sky = None
 
     def tile(self,tx,ty):
         if 0 <= tx < self.tw and 0 <= ty < self.th:
@@ -107,22 +109,29 @@ class Level:
 
     def draw(self):
         if self.b is not None and frameno > 1:
-            #print 'cached', self.batch
             self.b.draw()
             return
 
         self.b = pyglet.graphics.Batch()
         self.bs = []
-        for tx, ty in xyrange(min(self.tw, 128), self.th):
+        for tx, ty in xyrange(self.tw, self.th):
             t = self.tile(tx,ty)
             self.bs.append(t.draw(sx=tx*64, sy=ty*64, batch=self.b))
         self.b.draw()
-        #del batch
 
     def enum_monsters(self):
         yield game.player
         for i in self.monsters:
             yield i
+
+allmaps = {}
+def getmap(name):
+    level = allmaps.get(name)
+    if level:
+        return level
+    level = loadmap(name)
+    allmaps[name]=level
+    return level
 
 def loadmap(fn):
     js= json.load(open(fn))
@@ -131,10 +140,17 @@ def loadmap(fn):
     print 'wh:', w, h
     level = Level(w,h)
 
-    data = js['layers'][0]['data']
+    dat = js['layers'][0]['data']
     tsf = json.load(open('data/tileset.json'))
     ts = tsf['tiles'] #js['tilesets'][0]['tiles']
     tp = tsf['tileproperties'] #js['tilesets'][0]['tileproperties']
+
+    lp = js['layers'][0].get("properties")# or {}
+    sky_file = lp.get('sky')
+    if sky_file:
+        level.sky = pyglet.sprite.Sprite(pyglet.image.load(data.filepath(sky_file)), x=0, y=0)
+    #else:
+    #    level.sky = pyglet.sprite.Sprite(pyglet.image.load(data.filepath('sky/clouds.png')), x=0, y=0)
     i=0
     for n, tt in ts.items():
         print tt, tp[n]
@@ -157,18 +173,18 @@ def loadmap(fn):
     for ny,x in xyrange(h,w):
         y = h-1-ny
         try:
-            s=data[i]
+            s=dat[i]
             if s == 0:
                 pass
             else:
                 level.set_tile(x,y, Tile.get(ts[str(s-1)]['image']))
-            #print data[i],
+            #print dat[i],
         except:
             pass
         i += 1
     object_layer = js['layers'][1]['objects']
     for o in object_layer:
-        print o
+        print "o=", o
         if o['type'] == 'monster':
             create_monster(level, o['name'],
                            int(o['x']), h*64-int(o['y']))
@@ -179,6 +195,16 @@ class MonsterImage:
         pass
 
 
+class WeaponEffect:
+    NONE = 0
+    HIT = 1
+    CHANGE_WEAPON = 2
+    FIREBALL = 3
+    def __init__(self, kind=NONE, reach=0):
+        self.kind = kind
+        self.reach = reach
+
+
 class WeaponAnim:
     XF = 0
     Y = 1
@@ -187,16 +213,13 @@ class WeaponAnim:
     HIT = 4
     NEXT = 5
     states = {
-    #           x*f y   angle  time hit next
-    'default': [25, 32, 0,      12, 0, []],
-    'thrust':  [15, 32, 105,    8,  1, ['thrust2']],
-    'thrust2': [45, 32, 90,     4,  0, ['default']],
-    'chop':    [35, 32, 100,    2,  1, ['chop2']],
-    'chop2':   [15, 32, 190,    2,  0, ['default']],
-    'cut':     [25, 32, -45,    4,  0, ['default','low']],
-    'rest':    [25, 20, 180,    4,  0, []],
-    'high':    [25, 55, -80,    4,  0, []],
-    'low':     [20, 35, 120,    4,  0, []],
+    #           x*f y   angle  time effect next
+    'default': [25, 32, 0,      12, 0,                  []],
+    'thrust':  [15, 32, 105,    8,  WeaponEffect(1,20), ['thrust2']],
+    'thrust2': [45, 32, 90,     4,  0,                  ['default']],
+    'chop':    [35, 32, 100,    2,  WeaponEffect(1,10), ['chop2']],
+    'chop2':   [15, 32, 190,    2,  0,                  ['default']],
+    'change':  [0, 22,  220,    8,  WeaponEffect(2),    []],
     }
     def __init__(self):
         self.src = 'default'
@@ -228,13 +251,27 @@ class WeaponAnim:
             self.state[i] = (WeaponAnim.states[self.src][i] * x +
                              WeaponAnim.states[self.tgt][i] * (1.0 - x))
         if self.time_left == 0:
-            if WeaponAnim.states[self.src][self.HIT]:
+            effect = WeaponAnim.states[self.tgt][self.HIT]
+            if effect and effect.kind == 2:
+                if m.inventory:
+                    new_weapon = m.inventory.pop()
+                    old_weapon = m.right_hand
+                    m.inventory.insert(0, old_weapon)
+                    m.right_hand = new_weapon
+
+            if effect and effect.kind == 1:
                 for mm in game.level.enum_monsters():
                     if mm is m: continue
-                    if mm.friendly: continue
+                    #if mm.friendly: continue
                     hit = False
                     ydist = 16
-                    xdist = 128
+                    rhr = 0
+                    hand_offset = 22
+                    belly_offset = 18
+                    if m.right_hand:
+                        rhr = m.right_hand.itemtype.reach
+                    xdist = hand_offset + belly_offset + rhr + effect.reach
+                    print 'xdist=', xdist, hand_offset, rhr, effect.reach
                     if m.y - ydist <= mm.y <= m.y+ydist:
                         if m.facing == 1:
                             if m.x <= mm.x <= m.x + xdist:
@@ -292,7 +329,11 @@ class Monster:
         self.in_swing = False
         self.in_kick = False
         self.in_jump = False
+        self.in_change = False
+        self.in_drop = False
+        self.in_use = False
         self.img_still =  pyglet.image.load(data.filepath(image_prefix))
+        self.inventory = []
     def reset_input(self):
         self.in_s = False
         self.in_w = False
@@ -302,6 +343,9 @@ class Monster:
         self.in_swing = False
         self.in_kick = False
         self.in_jump = False
+        self.in_change = False
+        self.in_drop = False
+        self.in_use = False
 
     def refill_jump(self):
         self.jump_left = 10
@@ -378,7 +422,12 @@ def process_input():
         game.player.in_swing = True
     if keys[key.L]:
         game.player.in_kick = True
-
+    if keys[key.X]:
+         game.player.in_change = True
+    if keys[key.E]:
+        game.player.in_use = True
+    if keys[key.G]:
+        game.player.in_drop = True
 
 def phym(monster):
     if True:
@@ -391,6 +440,9 @@ def phym(monster):
     if m.hp <= 0:
         m.y -= 20
         return
+
+    if m.in_use:
+        # pickup items, chat, change level
 
     have_ground = False
     on_stairs = False
@@ -448,7 +500,8 @@ def phym(monster):
 
     if m.in_thrust:
         m.weapon_anim.start_attack1(m, 'thrust')
-    #m.weapon_anim.prn()
+    if m.in_change:
+        m.weapon_anim.start_attack1(m, 'change')
 
     (newx, newy, newt) = game.level.get_tx_ty_tile_at(m.x + m.vx,
                                                       m.y + m.vy)
@@ -507,7 +560,7 @@ def phy(dt):
         phym(m)
 
 def damage_monster(m, amount):
-    if m.friendly: return
+    #if m.friendly: return
     m.hp -= amount
 
 
@@ -515,8 +568,7 @@ def game_mode_draw():
     global frameno
     frameno += 1
     window.clear()
-    game.sky.draw()
-    #game.bg.draw()
+    game.level.sky.draw()
     glPushMatrix(GL_MODELVIEW)
     glTranslatef(window.width/2-game.player.x,
                  window.height/2-game.player.y,0)
@@ -530,11 +582,16 @@ def game_mode_draw():
 
 
 def init_item_types():
-    sword=ItemType('sword', 'pics/sword.png')
-    spear=ItemType('spear', 'pics/spear.png')
-    polearm=ItemType('polearm', 'pics/polearm.png')
-    staff=ItemType('staff', 'pics/staff.png')
-    dagger=ItemType('dagger', 'pics/dagger.png')
+    sword=ItemType('sword', 'pics/sword.png', 10, 47)
+    spear=ItemType('spear', 'pics/spear.png', 10, 59)
+    polearm=ItemType('polearm', 'pics/polearm.png', 10, 59)
+    staff=ItemType('staff', 'pics/staff.png', 5, 60)
+    dagger=ItemType('dagger', 'pics/dagger.png', 30, 16)
+
+    fire_wand=ItemType('fire_wand', 'pics/fire_wand.png', 5, 45)
+    ice_wand=ItemType('ice_wand', 'pics/ice_wand.png', 5, 45)
+    axe=ItemType('axe', 'pics/axe.png', 30, 47)
+
     '''
 goblin
 goblin_citizen
@@ -594,6 +651,8 @@ def create_monster(level, name, x, y):
     'troll_trader':      ('pics/troll1.png', 5, 30, ''),
     'troll_shaman':      ('pics/troll1.png', 5, 30, ''),
     'troll_necromancer': ('pics/troll1.png', 5, 30, ''),
+    'sack':              ('pics/sack.png', 0, 50, ''),
+    'barrel':            ('pics/barrel.png', 0, 500, ''),
     }
 
     mm = monsters[name]
@@ -602,7 +661,7 @@ def create_monster(level, name, x, y):
     m.x = x
     m.y = y
 
-    friends = 'citizen guard trader king shaman necromancer'.split()
+    friends = 'citizen guard trader king shaman necromancer sack'.split()
     for f in friends:
         if name.endswith(f):
             m.friendly = True
@@ -623,14 +682,15 @@ def main():
     pyglet.clock.schedule_interval(phy, 1/60.0)
     pyglet.clock.set_fps_limit(60)
     init_item_types()
-    game.level = loadmap('data/map1.json')
+    game.level = getmap('data/map1.json')
     #game.level = loadmap('data/rogues.json')
     game.player = Monster('pics/orc1.png')
     game.player.x = 300
     game.player.y = 2200
     game.player.right_hand = Item(ItemType.alltypes['sword'])
+    game.player.inventory.append(Item(ItemType.alltypes['staff']))
+    game.player.inventory.append(Item(ItemType.alltypes['dagger']))
+    game.player.inventory.append(Item(ItemType.alltypes['polearm']))
+    game.player.inventory.append(Item(ItemType.alltypes['spear']))
     game.GTIEL = Tile('qwe','pics/orc1.png')
-    game.sky = pyglet.sprite.Sprite(pyglet.image.load(data.filepath('sky/clouds.png')), x=0, y=0)
-    #game.sky = pyglet.sprite.Sprite(pyglet.image.load(data.filepath('sky/forest.png')), x=0, y=0)
-    game.sky.scale = 1
     pyglet.app.run()
