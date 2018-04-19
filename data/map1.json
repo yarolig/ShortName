@@ -135,6 +135,18 @@
                  "width":0,
                  "x":890.666666666667,
                  "y":989.333333333333
+                }, 
+                {
+                 "height":0,
+                 "id":18,
+                 "name":"orc_guard",
+                 "point":true,
+                 "rotation":0,
+                 "type":"monster",
+                 "visible":true,
+                 "width":0,
+                 "x":3342.66666666667,
+                 "y":1190.66666666667
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -142,7 +154,7 @@
          "x":0,
          "y":0
         }],
- "nextobjectid":18,
+ "nextobjectid":19,
  "orientation":"orthogonal",
  "renderorder":"right-up",
  "tiledversion":"1.1.4",

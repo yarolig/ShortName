@@ -172,7 +172,6 @@ def loadmap(fn):
     for o in object_layer:
         print o
         if o['type'] == 'monster':
-            print "found monster!!!"
             create_monster(level, o['name'],
                            int(o['x']), h*64-int(o['y']))
     return level
@@ -194,8 +193,8 @@ class WeaponAnim:
     'default': [25, 32, 0,      12, 0, []],
     'thrust':  [15, 32, 105,    8,  1, ['thrust2']],
     'thrust2': [45, 32, 90,     4,  0, ['default']],
-    'chop':    [25, 32, 40,     8,  1, ['chop2']],
-    'chop2':   [35, 32, 140,    4,  0, ['default']],
+    'chop':    [35, 32, 100,    2,  1, ['chop2']],
+    'chop2':   [15, 32, 190,    2,  0, ['default']],
     'cut':     [25, 32, -45,    4,  0, ['default','low']],
     'rest':    [25, 20, 180,    4,  0, []],
     'high':    [25, 55, -80,    4,  0, []],
@@ -468,6 +467,8 @@ def phym(monster):
 
 def aim(m):
     m.reset_input()
+    if m.friendly:
+        return
     player_sdist_sq = (game.player.x - m.x) ** 2 + (game.player.y - m.y) ** 2
 
     if player_sdist_sq > (64 * 5) ** 2:
@@ -524,6 +525,7 @@ def on_draw():
 def init_item_types():
     sword=ItemType('sword', 'pics/sword.png')
     spear=ItemType('spear', 'pics/spear.png')
+    polearm=ItemType('polearm', 'pics/polearm.png')
     staff=ItemType('staff', 'pics/staff.png')
     dagger=ItemType('dagger', 'pics/dagger.png')
     '''
@@ -561,7 +563,6 @@ def give_weapon(m, desc):
     m.right_hand = Item(ItemType.alltypes[random.choice(desc.split())])
 
 def create_monster(level, name, x, y):
-
     monsters= {
     'goblin':         ('pics/goblin1.png', 5, 30, 'staff'),
     'goblin_citizen': ('pics/goblin1.png', 5, 30, ''),
@@ -601,8 +602,10 @@ def create_monster(level, name, x, y):
     give_weapon(m, mm[3])
     m.speed = mm[1]
     m.hp = mm[2]
+    m.facing = -1
 
     level.monsters.append(m)
+    return m
 
 def main():
     print "qwe"
