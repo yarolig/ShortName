@@ -443,7 +443,7 @@ def phym(monster):
 
     if m.in_use:
         # pickup items, chat, change level
-
+        pass
     have_ground = False
     on_stairs = False
     if t and t.solid in (LADDER,):
