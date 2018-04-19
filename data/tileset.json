@@ -8,7 +8,7 @@
  "margin":0,
  "name":"tileset",
  "spacing":0,
- "tilecount":29,
+ "tilecount":30,
  "tileheight":64,
  "tileproperties":
     {
@@ -101,6 +101,10 @@
          "solid":"air"
         },
      "3":
+        {
+         "solid":"air"
+        },
+     "30":
         {
          "solid":"air"
         },
@@ -220,6 +224,10 @@
          "solid":"string"
         },
      "3":
+        {
+         "solid":"string"
+        },
+     "30":
         {
          "solid":"string"
         },
@@ -385,6 +393,12 @@
      "3":
         {
          "image":"pics\/bush.png",
+         "imageheight":64,
+         "imagewidth":64
+        },
+     "30":
+        {
+         "image":"pics\/dirtwall.png",
          "imageheight":64,
          "imagewidth":64
         },

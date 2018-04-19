@@ -82,6 +82,16 @@ class Item:
     def draw(self, sx, sy, angle, batch=None):
         self.itemtype.draw(sx, sy, angle, batch)
 
+class Place:
+    NONE = 0
+    TRAVEL = 1
+    CHAT = 2
+    LABEL = 3
+    kind = 0
+    label = ''
+    value = ''
+    entry = '' # entry name for changing levels
+
 class Level:
     def __init__(self, tw, th):
         self.tiles = [Tile('air','') for i in xrange(tw*th)]
@@ -92,6 +102,7 @@ class Level:
         self.b = None
         self.bs = []
         self.sky = None
+        self.places = []
 
     def tile(self,tx,ty):
         if 0 <= tx < self.tw and 0 <= ty < self.th:
@@ -188,6 +199,30 @@ def loadmap(fn):
         if o['type'] == 'monster':
             create_monster(level, o['name'],
                            int(o['x']), h*64-int(o['y']))
+        if o['type'] == 'travel':
+            p = Place()
+            p.x = int(o['x'])
+            p.y = h*64-int(o['y'])
+            p.kind = p.TRAVEL
+            p.label = o['name']
+            p.value = o['properties']['file']
+            level.places.append(p)
+        if o['type'] == 'label':
+            p = Place()
+            p.x = int(o['x'])
+            p.y = h*64-int(o['y'])
+            p.kind = p.LABEL
+            p.label = o['value']
+            level.places.append(p)
+
+        if o['type'] == 'chat':
+            p = Place()
+            p.x = int(o['x'])
+            p.y = h*64-int(o['y'])
+            p.kind = p.CHAT
+            p.label = o['value']
+            level.places.append(p)
+
     return level
 
 class MonsterImage:
@@ -371,7 +406,12 @@ label = pyglet.text.Label('100 hp',
                           font_name='Times New Roman',
                           font_size=36,
                           x=10, y=10)
+roadsign = pyglet.text.Label('To forest',
+                        font_name='Times New Roman',
+                        font_size=26,
+                        x=10, y=window.height - 20)
 
+roadsign_text = ''
 
 
 
@@ -429,6 +469,10 @@ def process_input():
     if keys[key.G]:
         game.player.in_drop = True
 
+def change_level(name, entryname=''):
+    level = getmap(name)
+    game.level = level
+
 def phym(monster):
     if True:
         m = monster
@@ -437,13 +481,30 @@ def phym(monster):
     (tx, ty, t) = game.level.get_tx_ty_tile_at(m.x, m.y)
     (belowtx, belowty, belowt) = game.level.get_tx_ty_tile_at(m.x, m.y - 12)
 
+    global roadsign_text
     if m.hp <= 0:
         m.y -= 20
         return
 
+    for p in game.level.places:
+        if p.kind in (Place.TRAVEL, Place.LABEL, Place.CHAT):
+            if (p.x - m.x) ** 2 + (p.y - m.y) ** 2 < 48 ** 2:
+
+                roadsign_text = p.label
+
     if m.in_use:
         # pickup items, chat, change level
-        pass
+        for p in game.level.places:
+            if (p.x - m.x) ** 2 + (p.y - m.y) ** 2 < 32 ** 2:
+                pass
+            else:
+                continue
+            if p.kind == Place.TRAVEL:
+                print 'change level!!', p.value, p.entry
+                if p.value:
+                    change_level(p.value, p.entry)
+                    return
+
     have_ground = False
     on_stairs = False
     if t and t.solid in (LADDER,):
@@ -553,6 +614,8 @@ def aim(m):
             m.in_d = True
 
 def phy(dt):
+    global roadsign_text
+    roadsign_text = ''
     process_input()
     phym(game.player)
     for m in game.level.monsters:
@@ -579,6 +642,8 @@ def game_mode_draw():
     glPopMatrix(GL_MODELVIEW)
     label.text = "%d HP, %d fps" % (game.player.hp, pyglet.clock.get_fps())
     label.draw()
+    roadsign.text = roadsign_text
+    roadsign.draw()
 
 
 def init_item_types():
