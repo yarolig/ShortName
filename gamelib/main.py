@@ -13,8 +13,6 @@ def xyrange(w,h):
         for y in xrange(h):
             yield x, y
 
-
-fps_display = pyglet.clock.ClockDisplay()
 frameno = 0
 # coord systems:
 # t - tile (1 = 1 tile)
@@ -268,6 +266,7 @@ class WeaponAnim:
 class Monster:
     def __init__(self, image_prefix):
         self.hp = 100
+        self.maxhp = 100
         self.friendly = False
         self.x = 0
         self.y = 0
@@ -314,20 +313,7 @@ class Monster:
             s.scale_x = -1
             s.position
         s.draw()
-        """
-        l = pyglet.text.Label('X',
-                              font_name='Times New Roman',
-                              font_size=4,
-                              x=self.x,y=self.y,
-                              anchor_x='center', anchor_y='center')
-        l.draw()
-        """
         self.weapon_anim.draw(self)
-        #if self.right_hand:
-        #    #                                   hand_pos
-        #    self.right_hand.draw(sx=self.x - 32 + 25 * self.facing,
-        #                         sy=self.y      + 32)
-
 
 class Game:
     level = Level(2,2)
@@ -335,14 +321,15 @@ class Game:
     player = Monster('pics/orc1.png')
 
 window = pyglet.window.Window()
-label = pyglet.text.Label('Hello, world',
-                          font_name='Times New Roman',
-                          font_size=36,
-                          x=window.width//2, y=window.height//2,
-                          anchor_x='center', anchor_y='center')
-
 game = Game()
 window.push_handlers(keys)
+label = pyglet.text.Label('100 hp',
+                          font_name='Times New Roman',
+                          font_size=36,
+                          x=10, y=10)
+
+
+
 
 def make_levelA():
     w=32
@@ -407,8 +394,12 @@ def phym(monster):
 
     have_ground = False
     on_stairs = False
+    if t and t.solid in (LADDER,):
+        on_stairs = True
+        m.refill_jump()
     if belowt and belowt.solid in (LADDER,):
         on_stairs = True
+        m.refill_jump()
     #(1024 + m.y) % 64 < 16 and
     if belowt and belowt.solid in (LADDER, PLATFORM, SOLID):
         m.refill_jump()
@@ -421,6 +412,9 @@ def phym(monster):
         # jump down
         elif m.in_jump and belowt and belowt.solid in (LADDER, PLATFORM):
             m.vy = -m.jump_speed
+        else:
+            m.jump_left = 0
+            m.vy = max(m.vy, 0) if have_ground else max(-15, m.vy - 3)
     else:
         if m.in_w and on_stairs:
             m.vy = m.jump_speed
@@ -463,6 +457,18 @@ def phym(monster):
         if newt.solid in (AIR, PLATFORM, LADDER):
             m.x = m.x + m.vx
             m.y = m.y + m.vy
+            return
+
+    (newx, newy, newt) = game.level.get_tx_ty_tile_at(m.x,
+                                                      m.y + m.vy)
+    if newt:
+        #print 'newt.solid', newt.solid, 'hg=', have_ground
+        if newt.solid in (AIR, PLATFORM, LADDER):
+            m.x = m.x
+            m.vx = 0
+            m.y = m.y + m.vy
+            return
+        m.vy /= 2
 
 
 def aim(m):
@@ -504,8 +510,8 @@ def damage_monster(m, amount):
     if m.friendly: return
     m.hp -= amount
 
-@window.event
-def on_draw():
+
+def game_mode_draw():
     global frameno
     frameno += 1
     window.clear()
@@ -519,8 +525,9 @@ def on_draw():
         m.draw()
     game.player.draw()
     glPopMatrix(GL_MODELVIEW)
+    label.text = "%d HP, %d fps" % (game.player.hp, pyglet.clock.get_fps())
+    label.draw()
 
-    fps_display.draw()
 
 def init_item_types():
     sword=ItemType('sword', 'pics/sword.png')
@@ -607,48 +614,23 @@ def create_monster(level, name, x, y):
     level.monsters.append(m)
     return m
 
+@window.event
+def on_draw():
+    game_mode_draw()
+
+
 def main():
-    print "qwe"
     pyglet.clock.schedule_interval(phy, 1/60.0)
-    #game.level = make_levelA()
+    pyglet.clock.set_fps_limit(60)
     init_item_types()
     game.level = loadmap('data/map1.json')
+    #game.level = loadmap('data/rogues.json')
     game.player = Monster('pics/orc1.png')
     game.player.x = 300
     game.player.y = 2200
     game.player.right_hand = Item(ItemType.alltypes['sword'])
-
-    """
-    m = Monster('pics/orc1.png')
-    m.x = 600
-    m.y = 2600
-    m.right_hand = Item(ItemType.alltypes['sword'])
-    m.speed = 3
-    m.hp = 30
-    game.level.monsters.append(m)
-
-
-    m = Monster('pics/orc1.png')
-    m.x = 1600
-    m.y = 2600
-    m.right_hand = Item(ItemType.alltypes['spear'])
-    m.speed = 5
-    m.hp = 30
-    game.level.monsters.append(m)
-
-
-    m = Monster('pics/goblin1.png')
-    m.x = 2600
-    m.y = 2600
-    m.right_hand = Item(ItemType.alltypes['dagger'])
-    m.speed = 10
-    m.hp = 30
-    game.level.monsters.append(m)
-
-    """
     game.GTIEL = Tile('qwe','pics/orc1.png')
-    #game.bg = pyglet.sprite.Sprite(pyglet.image.load(data.filepath('backgrounds/village.png')), x=0, y=0)
-    #game.bg.scale = 8
     game.sky = pyglet.sprite.Sprite(pyglet.image.load(data.filepath('sky/clouds.png')), x=0, y=0)
+    #game.sky = pyglet.sprite.Sprite(pyglet.image.load(data.filepath('sky/forest.png')), x=0, y=0)
     game.sky.scale = 1
     pyglet.app.run()
