@@ -23,6 +23,7 @@ AIR = 0
 PLATFORM = 1
 LADDER = 2
 SOLID = 3
+MAGMA = 4
 
 class Tile:
     alltiles = {}
@@ -59,6 +60,8 @@ class ItemType:
         self.name = name
         self.damage = damage
         self.reach = reach
+        self.attack1 = 'thrust'
+        self.attack2 = 'chop'
 
     def draw(self, sx, sy, angle=0, batch=None):
         if self.image is None:
@@ -72,6 +75,45 @@ class ItemType:
     @classmethod
     def get(cls, name):
         return cls.alltypes.get(name)
+
+class ProjectileType:
+    alltypes = {}
+    def __init__(self, name, fpath, damage=10, reach=10, speed=5, ttl=200):
+        if fpath:
+            self.image = pyglet.image.load(data.filepath(fpath))
+            self.image.anchor_x = 32
+            self.image.anchor_y = 32
+        else:
+            self.image = None
+        ProjectileType.alltypes[name]=self
+        self.name = name
+        self.damage = damage
+        self.reach = reach
+        self.ttl = ttl
+        self.speed = speed
+
+    def draw(self, sx, sy):
+        if self.image is None:
+            return
+        s = pyglet.sprite.Sprite(self.image, x=sx, y=sy)
+        s.draw()
+    @classmethod
+    def get(cls, name):
+        result = cls.alltypes.get(name)
+        if not result:
+            print name, cls.alltypes
+        return result
+
+class Projectile:
+    def __init__(self, ptype, x=0, y=0, vx=0, vy=0):
+        self.x = x
+        self.y = y
+        self.vx = vx
+        self.vy = vy
+        self.ptype = ptype
+        self.ttl = 100
+    def draw(self):
+        self.ptype.draw(self.x, self.y)
 
 class Item:
     def __init__(self, itemtype):
@@ -87,6 +129,7 @@ class Place:
     TRAVEL = 1
     CHAT = 2
     LABEL = 3
+    ENTRY = 4
     kind = 0
     label = ''
     value = ''
@@ -103,6 +146,7 @@ class Level:
         self.bs = []
         self.sky = None
         self.places = []
+        self.projectiles = []
 
     def tile(self,tx,ty):
         if 0 <= tx < self.tw and 0 <= ty < self.th:
@@ -178,6 +222,7 @@ def loadmap(fn):
         if solid == 'ladder': s = LADDER
         if solid == 'platform': s = PLATFORM
         if solid == 'roof': s = PLATFORM
+        if solid == 'magma': s = MAGMA
         t.solid = s
         i+=1
     i=0
@@ -223,6 +268,14 @@ def loadmap(fn):
             p.label = o['value']
             level.places.append(p)
 
+        if o['type'] == 'entry':
+            p = Place()
+            p.x = int(o['x'])
+            p.y = h*64-int(o['y'])
+            p.kind = p.ENTRY
+            p.value = o['name']
+            level.places.append(p)
+
     return level
 
 class MonsterImage:
@@ -235,6 +288,8 @@ class WeaponEffect:
     HIT = 1
     CHANGE_WEAPON = 2
     FIREBALL = 3
+    FORCEWAVE = 4
+    ICEBLAST = 5
     def __init__(self, kind=NONE, reach=0):
         self.kind = kind
         self.reach = reach
@@ -254,6 +309,12 @@ class WeaponAnim:
     'thrust2': [45, 32, 90,     4,  0,                  ['default']],
     'chop':    [35, 32, 100,    2,  WeaponEffect(1,10), ['chop2']],
     'chop2':   [15, 32, 190,    2,  0,                  ['default']],
+    'fire':    [35, 32, 100,    2,  WeaponEffect(3),    ['fire2']],
+    'fire2':   [15, 32, 190,    2,  0,                  ['default']],
+    'force':   [35, 32, 100,    2,  WeaponEffect(4),    ['force2']],
+    'force2':  [15, 32, 190,    2,  0,                  ['default']],
+    'ice':     [35, 32, 100,    2,  WeaponEffect(5),    ['ice2']],
+    'ice2':    [15, 32, 190,    2,  0,                  ['default']],
     'change':  [0, 22,  220,    8,  WeaponEffect(2),    []],
     }
     def __init__(self):
@@ -287,6 +348,21 @@ class WeaponAnim:
                              WeaponAnim.states[self.tgt][i] * (1.0 - x))
         if self.time_left == 0:
             effect = WeaponAnim.states[self.tgt][self.HIT]
+            if effect and effect.kind in (3,4,5):
+                d = {3:'fire', 4:'force', 5:'ice'}
+                pt = ProjectileType.get(d[effect.kind])
+                p = Projectile(pt)
+                rhr = 0
+                if m.right_hand:
+                    rhr = m.right_hand.itemtype.reach
+                p.x = m.x + (32 + rhr) * m.facing
+                p.y = m.y + 32
+                p.vx = m.facing * pt.speed
+                p.vy = 0
+                p.ttl = pt.ttl
+                print 'cast', d[effect.kind]
+                game.level.projectiles.append(p)
+
             if effect and effect.kind == 2:
                 if m.inventory:
                     new_weapon = m.inventory.pop()
@@ -409,10 +485,16 @@ label = pyglet.text.Label('100 hp',
 roadsign = pyglet.text.Label('To forest',
                         font_name='Times New Roman',
                         font_size=26,
-                        x=10, y=window.height - 20)
+                        x=10, y=window.height - 50)
 
 roadsign_text = ''
 
+hintsign = pyglet.text.Label('Press E to win',
+                        font_name='Times New Roman',
+                        font_size=16,
+                        x=10, y=window.height - 120)
+
+hintsign_text = ''
 
 
 def make_levelA():
@@ -456,9 +538,9 @@ def process_input():
 
     if keys[key.SPACE]:
         game.player.in_jump = True
-    if keys[key.J]:
+    if keys[key.J] or keys[key.V]:
         game.player.in_thrust = True
-    if keys[key.K]:
+    if keys[key.K] or keys[key.F]:
         game.player.in_swing = True
     if keys[key.L]:
         game.player.in_kick = True
@@ -469,9 +551,17 @@ def process_input():
     if keys[key.G]:
         game.player.in_drop = True
 
-def change_level(name, entryname=''):
+def change_level(name, entryname=None):
+    if not entryname:
+        entryname = 'entry'
     level = getmap(name)
     game.level = level
+    for o in level.places:
+        if o.kind == Place.ENTRY:
+            if o.value == entryname:
+                game.player.x = o.x
+                game.player.y = o.y
+                return
 
 def phym(monster):
     if True:
@@ -482,6 +572,14 @@ def phym(monster):
     (belowtx, belowty, belowt) = game.level.get_tx_ty_tile_at(m.x, m.y - 12)
 
     global roadsign_text
+    in_magma = False
+    if t and t.solid in (MAGMA,):
+        in_magma = True
+    if belowt and belowt.solid in (MAGMA,):
+        in_magma = True
+
+    if in_magma:
+        m.hp -= 3
     if m.hp <= 0:
         m.y -= 20
         return
@@ -495,7 +593,7 @@ def phym(monster):
     if m.in_use:
         # pickup items, chat, change level
         for p in game.level.places:
-            if (p.x - m.x) ** 2 + (p.y - m.y) ** 2 < 32 ** 2:
+            if (p.x - m.x) ** 2 + (p.y - m.y) ** 2 < 48 ** 2:
                 pass
             else:
                 continue
@@ -507,6 +605,7 @@ def phym(monster):
 
     have_ground = False
     on_stairs = False
+
     if t and t.solid in (LADDER,):
         on_stairs = True
         m.refill_jump()
@@ -557,10 +656,13 @@ def phym(monster):
 
     m.weapon_anim.update(m)
     if m.in_swing:
-        m.weapon_anim.start_attack1(m, 'chop')
+        if m.right_hand:
+            m.weapon_anim.start_attack1(m, m.right_hand.itemtype.attack1)
 
     if m.in_thrust:
-        m.weapon_anim.start_attack1(m, 'thrust')
+        if m.right_hand:
+            m.weapon_anim.start_attack1(m, m.right_hand.itemtype.attack2)
+
     if m.in_change:
         m.weapon_anim.start_attack1(m, 'change')
 
@@ -568,7 +670,7 @@ def phym(monster):
                                                       m.y + m.vy)
     if newt:
         #print 'newt.solid', newt.solid, 'hg=', have_ground
-        if newt.solid in (AIR, PLATFORM, LADDER):
+        if newt.solid in (MAGMA, AIR, PLATFORM, LADDER):
             m.x = m.x + m.vx
             m.y = m.y + m.vy
             return
@@ -577,7 +679,7 @@ def phym(monster):
                                                       m.y + m.vy)
     if newt:
         #print 'newt.solid', newt.solid, 'hg=', have_ground
-        if newt.solid in (AIR, PLATFORM, LADDER):
+        if newt.solid in (MAGMA, AIR, PLATFORM, LADDER):
             m.x = m.x
             m.vx = 0
             m.y = m.y + m.vy
@@ -613,7 +715,45 @@ def aim(m):
         else:
             m.in_d = True
 
+
+def phyp(projectile):
+    (tx, ty, t) = game.level.get_tx_ty_tile_at(projectile.x, projectile.y)
+    projectile.ttl -= 1
+    if t and t.solid in (SOLID, MAGMA):
+        projectile.ttl = 0
+    if projectile.ttl <= 0:
+        return
+    projectile.x += projectile.vx
+    projectile.y += projectile.vy
+
+    for mm in game.level.enum_monsters():
+        #if mm.friendly: continue
+        hit = False
+        ydist = 32
+        xdist = abs(projectile.vx) * 2
+        facing = 1 if projectile.vx > 0 else -1
+        if projectile.y - ydist <= mm.y + 32 <= projectile.y+ydist:
+            if facing == 1:
+                if projectile.x <= mm.x <= projectile.x + xdist:
+                    hit = True
+            else:
+                if projectile.x - xdist <= mm.x <= projectile.x:
+                    hit = True
+        if hit:
+            projectile.ttl = 0
+            mm.vy += 5
+            mm.vx += facing * 10
+            damage_monster(mm, projectile.ptype.damage)
+
+
+accdt = 0.0
 def phy(dt):
+    global accdt
+    accdt += dt
+    if accdt > 0.02:
+        accdt = 0.0
+    else:
+        return
     global roadsign_text
     roadsign_text = ''
     process_input()
@@ -621,6 +761,11 @@ def phy(dt):
     for m in game.level.monsters:
         aim(m)
         phym(m)
+    for p in game.level.projectiles:
+        phyp(p)
+
+    game.level.projectiles = [p for p in game.level.projectiles if p.ttl >0]
+
 
 def damage_monster(m, amount):
     #if m.friendly: return
@@ -637,8 +782,16 @@ def game_mode_draw():
                  window.height/2-game.player.y,0)
     game.level.draw()
     for m in game.level.monsters:
-        m.draw()
+        if  (abs(m.x - game.player.x) < window.width // 2 + 64 and
+             abs(m.y - game.player.y) < window.height // 2 + 64):
+            m.draw()
     game.player.draw()
+    for p in game.level.projectiles:
+        if  (abs(p.x - game.player.x) < window.width // 2 + 64 and
+             abs(p.y - game.player.y) < window.height // 2 + 64):
+            p.draw()
+
+
     glPopMatrix(GL_MODELVIEW)
     label.text = "%d HP, %d fps" % (game.player.hp, pyglet.clock.get_fps())
     label.draw()
@@ -654,37 +807,21 @@ def init_item_types():
     dagger=ItemType('dagger', 'pics/dagger.png', 30, 16)
 
     fire_wand=ItemType('fire_wand', 'pics/fire_wand.png', 5, 45)
+    fire_wand.attack1 = 'fire'
+
     ice_wand=ItemType('ice_wand', 'pics/ice_wand.png', 5, 45)
+    ice_wand.attack2 = 'ice'
+
+    force_wand=ItemType('force_wand', 'pics/force_wand.png', 15, 60)
+    force_wand.attack1 = 'force'
+
     axe=ItemType('axe', 'pics/axe.png', 30, 47)
 
-    '''
-goblin
-goblin_citizen
-goblin_guard
-goblin_king
-goblin_trader
-goblin_robber
-goblin_shaman
-goblin_necromancer
 
-orc
-orc_citizen
-orc_guard
-orc_king
-orc_trader
-orc_bandit
-orc_shaman
-orc_necromancer
-
-troll
-troll_citizen
-troll_guard
-troll_king
-troll_trader
-troll_shaman
-troll_necromancer
-
-'''
+def init_projectiles():
+    fire = ProjectileType('fire', 'pics/fire.png',   damage=10, ttl=20,speed=18)
+    ice = ProjectileType('ice', 'pics/ice.png',      damage=10, ttl=50,speed=3)
+    force = ProjectileType('force', 'pics/force.png',damage=10, ttl=20,speed=10)
 
 def give_weapon(m, desc):
     if not desc:
@@ -747,6 +884,7 @@ def main():
     pyglet.clock.schedule_interval(phy, 1/60.0)
     pyglet.clock.set_fps_limit(60)
     init_item_types()
+    init_projectiles()
     game.level = getmap('data/map1.json')
     #game.level = loadmap('data/rogues.json')
     game.player = Monster('pics/orc1.png')
@@ -757,5 +895,9 @@ def main():
     game.player.inventory.append(Item(ItemType.alltypes['dagger']))
     game.player.inventory.append(Item(ItemType.alltypes['polearm']))
     game.player.inventory.append(Item(ItemType.alltypes['spear']))
+    game.player.inventory.append(Item(ItemType.alltypes['axe']))
+    game.player.inventory.append(Item(ItemType.alltypes['force_wand']))
+    game.player.inventory.append(Item(ItemType.alltypes['ice_wand']))
+    game.player.inventory.append(Item(ItemType.alltypes['fire_wand']))
     game.GTIEL = Tile('qwe','pics/orc1.png')
     pyglet.app.run()

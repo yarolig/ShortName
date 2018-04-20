@@ -305,8 +305,8 @@
                  "type":"travel",
                  "visible":true,
                  "width":0,
-                 "x":224,
-                 "y":889.333333333333
+                 "x":227,
+                 "y":879
                 }, 
                 {
                  "height":0,
@@ -327,6 +327,106 @@
                  "width":0,
                  "x":224.666666666667,
                  "y":1081.33333333333
+                }, 
+                {
+                 "height":0,
+                 "id":39,
+                 "name":"Bandit's hills",
+                 "point":true,
+                 "properties":
+                    {
+                     "file":"data\/bandits.json"
+                    },
+                 "propertytypes":
+                    {
+                     "file":"string"
+                    },
+                 "rotation":0,
+                 "type":"travel",
+                 "visible":true,
+                 "width":0,
+                 "x":160,
+                 "y":880
+                }, 
+                {
+                 "height":0,
+                 "id":41,
+                 "name":"Ashland",
+                 "point":true,
+                 "properties":
+                    {
+                     "file":"data\/ash.json"
+                    },
+                 "propertytypes":
+                    {
+                     "file":"string"
+                    },
+                 "rotation":0,
+                 "type":"travel",
+                 "visible":true,
+                 "width":0,
+                 "x":161,
+                 "y":1080
+                }, 
+                {
+                 "height":0,
+                 "id":45,
+                 "name":"Goblin Town",
+                 "point":true,
+                 "properties":
+                    {
+                     "file":"data\/goblintown.json"
+                    },
+                 "propertytypes":
+                    {
+                     "file":"string"
+                    },
+                 "rotation":0,
+                 "type":"travel",
+                 "visible":true,
+                 "width":0,
+                 "x":744,
+                 "y":1263
+                }, 
+                {
+                 "height":0,
+                 "id":46,
+                 "name":"Goblin Castle",
+                 "point":true,
+                 "properties":
+                    {
+                     "file":"data\/goblincastle.json"
+                    },
+                 "propertytypes":
+                    {
+                     "file":"string"
+                    },
+                 "rotation":0,
+                 "type":"travel",
+                 "visible":true,
+                 "width":0,
+                 "x":541,
+                 "y":1142
+                }, 
+                {
+                 "height":0,
+                 "id":47,
+                 "name":"Orc Castle",
+                 "point":true,
+                 "properties":
+                    {
+                     "file":"data\/orccastle.json"
+                    },
+                 "propertytypes":
+                    {
+                     "file":"string"
+                    },
+                 "rotation":0,
+                 "type":"travel",
+                 "visible":true,
+                 "width":0,
+                 "x":613,
+                 "y":1194
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -334,7 +434,7 @@
          "x":0,
          "y":0
         }],
- "nextobjectid":39,
+ "nextobjectid":48,
  "orientation":"orthogonal",
  "renderorder":"right-up",
  "tiledversion":"1.1.4",

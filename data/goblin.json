@@ -1,0 +1,15 @@
+{ "object":
+    {
+     "height":0,
+     "id":15,
+     "name":"goblin",
+     "point":true,
+     "rotation":0,
+     "type":"monster",
+     "visible":true,
+     "width":0,
+     "x":1541.33333333333,
+     "y":1246.66666666667
+    },
+ "type":"template"
+}

@@ -8,7 +8,7 @@
  "margin":0,
  "name":"tileset",
  "spacing":0,
- "tilecount":30,
+ "tilecount":41,
  "tileheight":64,
  "tileproperties":
     {
@@ -108,7 +108,51 @@
         {
          "solid":"air"
         },
+     "31":
+        {
+         "solid":"air"
+        },
+     "32":
+        {
+         "solid":"air"
+        },
+     "33":
+        {
+         "solid":"roof"
+        },
+     "34":
+        {
+         "solid":"magma"
+        },
+     "35":
+        {
+         "solid":"roof"
+        },
+     "36":
+        {
+         "solid":"solid"
+        },
+     "37":
+        {
+         "solid":"air"
+        },
+     "38":
+        {
+         "solid":"roof"
+        },
+     "39":
+        {
+         "solid":"roof"
+        },
      "4":
+        {
+         "solid":"air"
+        },
+     "40":
+        {
+         "solid":"air"
+        },
+     "41":
         {
          "solid":"air"
         },
@@ -231,7 +275,51 @@
         {
          "solid":"string"
         },
+     "31":
+        {
+         "solid":"string"
+        },
+     "32":
+        {
+         "solid":"string"
+        },
+     "33":
+        {
+         "solid":"string"
+        },
+     "34":
+        {
+         "solid":"string"
+        },
+     "35":
+        {
+         "solid":"string"
+        },
+     "36":
+        {
+         "solid":"string"
+        },
+     "37":
+        {
+         "solid":"string"
+        },
+     "38":
+        {
+         "solid":"string"
+        },
+     "39":
+        {
+         "solid":"string"
+        },
      "4":
+        {
+         "solid":"string"
+        },
+     "40":
+        {
+         "solid":"string"
+        },
+     "41":
         {
          "solid":"string"
         },
@@ -402,9 +490,75 @@
          "imageheight":64,
          "imagewidth":64
         },
+     "31":
+        {
+         "image":"pics\/ash.png",
+         "imageheight":64,
+         "imagewidth":64
+        },
+     "32":
+        {
+         "image":"pics\/ashtree.png",
+         "imageheight":64,
+         "imagewidth":64
+        },
+     "33":
+        {
+         "image":"pics\/ash_platform.png",
+         "imageheight":64,
+         "imagewidth":64
+        },
+     "34":
+        {
+         "image":"pics\/magma.png",
+         "imageheight":64,
+         "imagewidth":64
+        },
+     "35":
+        {
+         "image":"pics\/cave_ceil.png",
+         "imageheight":64,
+         "imagewidth":64
+        },
+     "36":
+        {
+         "image":"pics\/cave_wall.png",
+         "imageheight":64,
+         "imagewidth":64
+        },
+     "37":
+        {
+         "image":"pics\/bash.png",
+         "imageheight":64,
+         "imagewidth":64
+        },
+     "38":
+        {
+         "image":"pics\/castle_carpet.png",
+         "imageheight":64,
+         "imagewidth":64
+        },
+     "39":
+        {
+         "image":"pics\/castle_floor.png",
+         "imageheight":64,
+         "imagewidth":64
+        },
      "4":
         {
          "image":"pics\/fence.png",
+         "imageheight":64,
+         "imagewidth":64
+        },
+     "40":
+        {
+         "image":"pics\/castle_statue.png",
+         "imageheight":64,
+         "imagewidth":64
+        },
+     "41":
+        {
+         "image":"pics\/dirt_plant.png",
          "imageheight":64,
          "imagewidth":64
         },
