@@ -265,7 +265,7 @@ def loadmap(fn):
             p.x = int(o['x'])
             p.y = h*64-int(o['y'])
             p.kind = p.CHAT
-            p.label = o['value']
+            p.label = o['name']
             level.places.append(p)
 
         if o['type'] == 'entry':
@@ -373,7 +373,7 @@ class WeaponAnim:
             if effect and effect.kind == 1:
                 for mm in game.level.enum_monsters():
                     if mm is m: continue
-                    #if mm.friendly: continue
+                    if mm.nodam: continue
                     hit = False
                     ydist = 16
                     rhr = 0
@@ -416,6 +416,7 @@ class Monster:
         self.hp = 100
         self.maxhp = 100
         self.friendly = False
+        self.nodam = False
         self.x = 0
         self.y = 0
         self.vx = 0
@@ -478,22 +479,22 @@ class Game:
 window = pyglet.window.Window()
 game = Game()
 window.push_handlers(keys)
+font_name = 'Times New Roman'
 label = pyglet.text.Label('100 hp',
-                          font_name='Times New Roman',
+                          font_name=font_name,
                           font_size=36,
                           x=10, y=10)
 roadsign = pyglet.text.Label('To forest',
-                        font_name='Times New Roman',
+                        font_name=font_name,
                         font_size=26,
                         x=10, y=window.height - 50)
 
 roadsign_text = ''
 
 hintsign = pyglet.text.Label('Press E to win',
-                        font_name='Times New Roman',
+                        font_name=font_name,
                         font_size=16,
                         x=10, y=window.height - 120)
-
 hintsign_text = ''
 
 
@@ -572,6 +573,7 @@ def phym(monster):
     (belowtx, belowty, belowt) = game.level.get_tx_ty_tile_at(m.x, m.y - 12)
 
     global roadsign_text
+    global hintsign_text
     in_magma = False
     if t and t.solid in (MAGMA,):
         in_magma = True
@@ -584,12 +586,14 @@ def phym(monster):
         m.y -= 20
         return
 
-    for p in game.level.places:
-        if p.kind in (Place.TRAVEL, Place.LABEL, Place.CHAT):
-            if (p.x - m.x) ** 2 + (p.y - m.y) ** 2 < 48 ** 2:
-
-                roadsign_text = p.label
-
+    if m is game.player:
+        for p in game.level.places:
+            if p.kind in (Place.TRAVEL, Place.LABEL):
+                if (p.x - m.x) ** 2 + (p.y - m.y) ** 2 < 48 ** 2:
+                    roadsign_text = p.label
+            if p.kind in (Place.CHAT,):
+                if (p.x - m.x) ** 2 + (p.y - m.y) ** 2 < 48 ** 2:
+                    hintsign_text = p.label
     if m.in_use:
         # pickup items, chat, change level
         for p in game.level.places:
@@ -727,7 +731,7 @@ def phyp(projectile):
     projectile.y += projectile.vy
 
     for mm in game.level.enum_monsters():
-        #if mm.friendly: continue
+        if mm.nodam: continue
         hit = False
         ydist = 32
         xdist = abs(projectile.vx) * 2
@@ -756,6 +760,9 @@ def phy(dt):
         return
     global roadsign_text
     roadsign_text = ''
+    global hintsign_text
+    hintsign_text = ''
+
     process_input()
     phym(game.player)
     for m in game.level.monsters:
@@ -768,7 +775,7 @@ def phy(dt):
 
 
 def damage_monster(m, amount):
-    #if m.friendly: return
+    if m.nodam: return
     m.hp -= amount
 
 
@@ -797,6 +804,8 @@ def game_mode_draw():
     label.draw()
     roadsign.text = roadsign_text
     roadsign.draw()
+    hintsign.text = hintsign_text
+    hintsign.draw()
 
 
 def init_item_types():
@@ -833,23 +842,23 @@ def create_monster(level, name, x, y):
     'goblin':         ('pics/goblin1.png', 5, 30, 'staff'),
     'goblin_citizen': ('pics/goblin1.png', 5, 30, ''),
     'goblin_guard':   ('pics/goblin1.png', 5, 30, 'spear polearm'),
-    'goblin_king':    ('pics/goblin1.png', 5, 30, ''),
+    'goblin_king':    ('pics/goblin1.png', 5, 30, 'force_wand'),
     'goblin_trader':  ('pics/goblin1.png', 5, 30, ''),
     'goblin_robber':  ('pics/goblin1.png', 5, 30, 'sword'),
     'goblin_shaman':  ('pics/goblin1.png', 5, 30, 'staff'),
-    'goblin_necromancer': ('pics/goblin1.png', 5, 30, 'dagger'),
+    'goblin_necromancer': ('pics/goblin1.png', 5, 30, 'dagger fire_wand'),
     'orc':             ('pics/orc1.png', 5, 30, ''),
     'orc_citizen':     ('pics/orc1.png', 5, 30, ''),
     'orc_guard':       ('pics/orc1.png', 5, 30, 'spear polearm'),
-    'orc_king':        ('pics/orc1.png', 5, 30, ''),
+    'orc_king':        ('pics/orc1.png', 5, 30, 'force_wand'),
     'orc_trader':      ('pics/orc1.png', 5, 30, ''),
     'orc_bandit':      ('pics/orc1.png', 5, 30, ''),
     'orc_shaman':      ('pics/orc1.png', 5, 30, ''),
-    'orc_necromancer': ('pics/orc1.png', 5, 30, ''),
+    'orc_necromancer': ('pics/orc1.png', 5, 30, 'staff fire_wand force_wand'),
     'troll':             ('pics/troll1.png', 5, 30, ''),
     'troll_citizen':     ('pics/troll1.png', 5, 30, ''),
     'troll_guard':       ('pics/troll1.png', 5, 30, ''),
-    'troll_king':        ('pics/troll1.png', 5, 30, ''),
+    'troll_king':        ('pics/troll1.png', 5, 30, 'force_wand'),
     'troll_trader':      ('pics/troll1.png', 5, 30, ''),
     'troll_shaman':      ('pics/troll1.png', 5, 30, ''),
     'troll_necromancer': ('pics/troll1.png', 5, 30, ''),
@@ -863,10 +872,16 @@ def create_monster(level, name, x, y):
     m.x = x
     m.y = y
 
-    friends = 'citizen guard trader king shaman necromancer sack'.split()
+    friends = 'citizen guard trader king shaman'.split()
     for f in friends:
         if name.endswith(f):
             m.friendly = True
+            m.nodam = True
+
+    if name in ('sack', 'barrel'):
+        m.friendly = True
+        m.nodam = False
+
     give_weapon(m, mm[3])
     m.speed = mm[1]
     m.hp = mm[2]

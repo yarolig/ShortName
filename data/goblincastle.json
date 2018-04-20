@@ -285,8 +285,8 @@
                  "type":"monster",
                  "visible":true,
                  "width":0,
-                 "x":4727.27272727273,
-                 "y":4009.09090909091
+                 "x":4737.93939393939,
+                 "y":4063.75757575758
                 }, 
                 {
                  "height":0,
@@ -407,6 +407,18 @@
                  "width":0,
                  "x":5602,
                  "y":3066
+                }, 
+                {
+                 "height":0,
+                 "id":34,
+                 "name":"My army needs a way to cross the magma river. Find it and I reward you.",
+                 "point":true,
+                 "rotation":0,
+                 "type":"chat",
+                 "visible":true,
+                 "width":0,
+                 "x":4742.66666666667,
+                 "y":4130.66666666667
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -414,7 +426,7 @@
          "x":0,
          "y":0
         }],
- "nextobjectid":34,
+ "nextobjectid":36,
  "orientation":"orthogonal",
  "renderorder":"right-up",
  "tiledversion":"1.1.4",

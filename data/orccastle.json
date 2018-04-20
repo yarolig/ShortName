@@ -359,6 +359,18 @@
                  "width":0,
                  "x":3072,
                  "y":2990
+                }, 
+                {
+                 "height":0,
+                 "id":36,
+                 "name":"My army needs a way to cross the magma river.Find it and I reward you.",
+                 "point":true,
+                 "rotation":0,
+                 "type":"chat",
+                 "visible":true,
+                 "width":0,
+                 "x":5668,
+                 "y":1840
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -366,7 +378,7 @@
          "x":0,
          "y":0
         }],
- "nextobjectid":36,
+ "nextobjectid":37,
  "orientation":"orthogonal",
  "renderorder":"right-up",
  "tiledversion":"1.1.4",
