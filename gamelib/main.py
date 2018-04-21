@@ -62,6 +62,7 @@ class ItemType:
         self.reach = reach
         self.attack1 = 'thrust'
         self.attack2 = 'chop'
+        self.health_potion = False
 
     def draw(self, sx, sy, angle=0, batch=None):
         if self.image is None:
@@ -204,8 +205,9 @@ def loadmap(fn):
     sky_file = lp.get('sky')
     if sky_file:
         level.sky = pyglet.sprite.Sprite(pyglet.image.load(data.filepath(sky_file)), x=0, y=0)
-    #else:
-    #    level.sky = pyglet.sprite.Sprite(pyglet.image.load(data.filepath('sky/clouds.png')), x=0, y=0)
+    else:
+        assert 'no sky file'
+        level.sky = pyglet.sprite.Sprite(pyglet.image.load(data.filepath('sky/clouds.png')), x=0, y=0)
     i=0
     for n, tt in ts.items():
         print tt, tp[n]
@@ -242,8 +244,11 @@ def loadmap(fn):
     for o in object_layer:
         print "o=", o
         if o['type'] == 'monster':
+            props = o.get('properties') or {}
+            inv = props.get('inv') or None
             create_monster(level, o['name'],
-                           int(o['x']), h*64-int(o['y']))
+                           int(o['x']), h*64-int(o['y']),
+                           inv)
         if o['type'] == 'travel':
             p = Place()
             p.x = int(o['x'])
@@ -302,6 +307,7 @@ class WeaponAnim:
     TIME = 3
     HIT = 4
     NEXT = 5
+    DROP = 6
     states = {
     #           x*f y   angle  time effect next
     'default': [25, 32, 0,      12, 0,                  []],
@@ -316,6 +322,7 @@ class WeaponAnim:
     'ice':     [35, 32, 100,    2,  WeaponEffect(5),    ['ice2']],
     'ice2':    [15, 32, 190,    2,  0,                  ['default']],
     'change':  [0, 22,  220,    8,  WeaponEffect(2),    []],
+    'drop':    [0, 0,   360+90, 8,  WeaponEffect(6),    ['default']],
     }
     def __init__(self):
         self.src = 'default'
@@ -365,10 +372,22 @@ class WeaponAnim:
 
             if effect and effect.kind == 2:
                 if m.inventory:
-                    new_weapon = m.inventory.pop()
+                    new_weapon = m.inventory.pop() if m.inventory else None
                     old_weapon = m.right_hand
-                    m.inventory.insert(0, old_weapon)
-                    m.right_hand = new_weapon
+                    if new_weapon:
+                        m.right_hand = new_weapon
+                        if old_weapon:
+                            m.inventory.insert(0, old_weapon)
+
+
+            if effect and effect.kind == 6:
+                new_weapon = m.inventory.pop() if m.inventory else None
+                old_weapon = m.right_hand
+                if old_weapon:
+                    game.level.items.append(old_weapon)
+                    old_weapon.x = m.x
+                    old_weapon.y = m.y
+                m.right_hand = new_weapon
 
             if effect and effect.kind == 1:
                 for mm in game.level.enum_monsters():
@@ -379,8 +398,10 @@ class WeaponAnim:
                     rhr = 0
                     hand_offset = 22
                     belly_offset = 18
+                    dam = 5
                     if m.right_hand:
                         rhr = m.right_hand.itemtype.reach
+                        dam = m.right_hand.itemtype.damage
                     xdist = hand_offset + belly_offset + rhr + effect.reach
                     print 'xdist=', xdist, hand_offset, rhr, effect.reach
                     if m.y - ydist <= mm.y <= m.y+ydist:
@@ -393,7 +414,7 @@ class WeaponAnim:
                     if hit:
                         mm.vy += 5
                         mm.vx += m.facing * 15
-                        damage_monster(mm, 10)
+                        damage_monster(mm, dam)
 
 
             self.src = self.tgt
@@ -413,6 +434,7 @@ class WeaponAnim:
 
 class Monster:
     def __init__(self, image_prefix):
+        self.name = ''
         self.hp = 100
         self.maxhp = 100
         self.friendly = False
@@ -490,6 +512,17 @@ roadsign = pyglet.text.Label('To forest',
                         x=10, y=window.height - 50)
 
 roadsign_text = ''
+mode = 'start'
+end_text = 'You are defeated.'
+end_bottom_text = 'Press Space to continue.'
+
+class Stats:
+    orcs = 0
+    goblins = 0
+    trolls = 0
+    dragons = 0
+    sacks = 0
+    restarts = 0
 
 hintsign = pyglet.text.Label('Press E to win',
                         font_name=font_name,
@@ -497,6 +530,9 @@ hintsign = pyglet.text.Label('Press E to win',
                         x=10, y=window.height - 120)
 hintsign_text = ''
 
+startsky = None
+load_mode_action = lambda: True
+load_mode_text = 'Loading...'
 
 def make_levelA():
     w=32
@@ -552,11 +588,20 @@ def process_input():
     if keys[key.G]:
         game.player.in_drop = True
 
+last_level = ''
+last_entry = ''
 def change_level(name, entryname=None):
+    print 'change level to', name, entryname
     if not entryname:
         entryname = 'entry'
+
+    global last_level
+    global last_entry
+    last_level = name
+    last_entry = entryname
     level = getmap(name)
     game.level = level
+    game.player.hp = max(game.player.hp, game.player.maxhp)
     for o in level.places:
         if o.kind == Place.ENTRY:
             if o.value == entryname:
@@ -606,6 +651,19 @@ def phym(monster):
                 if p.value:
                     change_level(p.value, p.entry)
                     return
+        if m.weapon_anim.time_left == 0:
+            for i in game.level.items:
+                if (i.x - m.x) ** 2 + (i.y - m.y) ** 2 < 48 ** 2:
+                    if i.itemtype.health_potion:
+                        m.hp += 100
+                        m.maxhp += 10
+                    else:
+                        new_weapon = i
+                        old_weapon = m.right_hand
+                        m.inventory.insert(0, old_weapon)
+                        m.right_hand = new_weapon
+                    game.level.items.remove(i)
+                    break
 
     have_ground = False
     on_stairs = False
@@ -667,6 +725,10 @@ def phym(monster):
         if m.right_hand:
             m.weapon_anim.start_attack1(m, m.right_hand.itemtype.attack2)
 
+    if m.in_drop:
+        if m.right_hand:
+            m.weapon_anim.start_attack1(m, 'drop')
+
     if m.in_change:
         m.weapon_anim.start_attack1(m, 'change')
 
@@ -699,7 +761,15 @@ def aim(m):
 
     if player_sdist_sq > (64 * 5) ** 2:
         return
+
     closing_dist = 100
+    if m.right_hand:
+        if m.right_hand.itemtype.name == 'dagger':
+            closing_dist = 10
+        if m.right_hand.itemtype.name == 'fire_wand':
+            closing_dist = 200
+        if m.right_hand.itemtype.name == 'force_wand':
+            closing_dist = 300
 
     good_facing = True
     if game.player.x * m.facing < m.x * m.facing:
@@ -751,13 +821,50 @@ def phyp(projectile):
 
 
 accdt = 0.0
-def phy(dt):
+def on_timer(dt):
     global accdt
     accdt += dt
     if accdt > 0.02:
+        dt = accdt
         accdt = 0.0
     else:
         return
+    global mode
+    if mode == 'game':
+        return phy(dt)
+    if mode == 'start':
+        return start_phy()
+    if mode == 'end':
+        return end_phy()
+    if mode == 'controls':
+        return controls_phy()
+
+def start_phy():
+    global mode
+    if keys[key.O]:
+        mode = 'game'
+        start_game('orc')
+    if keys[key.G]:
+        mode = 'game'
+        start_game('goblin')
+    if keys[key.T]:
+        mode = 'game'
+        start_game('troll')
+    if keys[key.F1]:
+        game.player.in_use = True
+
+def end_phy():
+    global mode
+    if keys[key.SPACE]:
+        mode = 'game'
+        Stats.restarts += 1
+        change_level(last_level, last_entry)
+
+def controls_phy():
+    pass
+
+dead_time = 0
+def phy(dt):
     global roadsign_text
     roadsign_text = ''
     global hintsign_text
@@ -773,11 +880,42 @@ def phy(dt):
 
     game.level.projectiles = [p for p in game.level.projectiles if p.ttl >0]
 
+    global dead_time
+    global mode
+    if game.player.hp <= 0:
+        dead_time += 1
+        if dead_time > 60:
+            mode = 'end'
+            dead_time = 0
 
 def damage_monster(m, amount):
     if m.nodam: return
     m.hp -= amount
+    if m.hp <= 0:
+        if m.name.startswith('goblin'):
+            Stats.goblins += 1
+        if m.name.startswith('orc'):
+            Stats.orcs += 1
+        if m.name.startswith('troll'):
+            Stats.trolls += 1
+        if m.name.startswith('dragon'):
+            Stats.dragons += 1
+        if m.name.startswith('sack'):
+            Stats.sacks += 1
 
+        if m is game.player:
+            return
+        weapon = m.right_hand
+        m.right_hand = None
+        if weapon:
+            game.level.items.append(weapon)
+            weapon.x = m.x
+            weapon.y = m.y
+        for i in m.inventory:
+            game.level.items.append(i)
+            i.x = m.x
+            i.y = m.y
+        m.inventory = []
 
 def game_mode_draw():
     global frameno
@@ -798,6 +936,10 @@ def game_mode_draw():
              abs(p.y - game.player.y) < window.height // 2 + 64):
             p.draw()
 
+    for i in game.level.items:
+        if  (abs(i.x - game.player.x) < window.width // 2 + 64 and
+             abs(i.y - game.player.y) < window.height // 2 + 64):
+                i.draw(i.x, i.y, 90)
 
     glPopMatrix(GL_MODELVIEW)
     label.text = "%d HP, %d fps" % (game.player.hp, pyglet.clock.get_fps())
@@ -816,16 +958,18 @@ def init_item_types():
     dagger=ItemType('dagger', 'pics/dagger.png', 30, 16)
 
     fire_wand=ItemType('fire_wand', 'pics/fire_wand.png', 5, 45)
-    fire_wand.attack1 = 'fire'
+    fire_wand.attack2 = 'fire'
 
     ice_wand=ItemType('ice_wand', 'pics/ice_wand.png', 5, 45)
-    ice_wand.attack2 = 'ice'
+    ice_wand.attack1 = 'ice'
 
     force_wand=ItemType('force_wand', 'pics/force_wand.png', 15, 60)
     force_wand.attack1 = 'force'
 
     axe=ItemType('axe', 'pics/axe.png', 30, 47)
 
+    potion = ItemType('potion', 'pics/potion.png', 30, 47)
+    potion.health_potion = True
 
 def init_projectiles():
     fire = ProjectileType('fire', 'pics/fire.png',   damage=10, ttl=20,speed=18)
@@ -837,32 +981,37 @@ def give_weapon(m, desc):
         return
     m.right_hand = Item(ItemType.alltypes[random.choice(desc.split())])
 
-def create_monster(level, name, x, y):
+def give_item(m, desc):
+    print 'give item', desc
+    if not desc:
+        return
+    m.inventory.append(Item(ItemType.alltypes[random.choice(desc.split())]))
+
+def create_monster(level, name, x, y, inv=None):
+    print 'create monster', name, x, y, inv
     monsters= {
     'goblin':         ('pics/goblin1.png', 5, 30, 'staff'),
     'goblin_citizen': ('pics/goblin1.png', 5, 30, ''),
     'goblin_guard':   ('pics/goblin1.png', 5, 30, 'spear polearm'),
     'goblin_king':    ('pics/goblin1.png', 5, 30, 'force_wand'),
-    'goblin_trader':  ('pics/goblin1.png', 5, 30, ''),
-    'goblin_robber':  ('pics/goblin1.png', 5, 30, 'sword'),
-    'goblin_shaman':  ('pics/goblin1.png', 5, 30, 'staff'),
+    'goblin_rogue':   ('pics/goblin1.png', 5, 30, 'sword spear'),
+    'goblin_shaman':  ('pics/goblin1.png', 5, 30, 'ice_wand'),
     'goblin_necromancer': ('pics/goblin1.png', 5, 30, 'dagger fire_wand'),
     'orc':             ('pics/orc1.png', 5, 30, ''),
     'orc_citizen':     ('pics/orc1.png', 5, 30, ''),
     'orc_guard':       ('pics/orc1.png', 5, 30, 'spear polearm'),
     'orc_king':        ('pics/orc1.png', 5, 30, 'force_wand'),
-    'orc_trader':      ('pics/orc1.png', 5, 30, ''),
-    'orc_bandit':      ('pics/orc1.png', 5, 30, ''),
-    'orc_shaman':      ('pics/orc1.png', 5, 30, ''),
-    'orc_necromancer': ('pics/orc1.png', 5, 30, 'staff fire_wand force_wand'),
+    'orc_bandit':      ('pics/orc1.png', 5, 30, 'sword dagger'),
+    'orc_shaman':      ('pics/orc1.png', 5, 30, 'force_wand'),
+    'orc_necromancer': ('pics/orc1.png', 5, 30, 'staff ice_wand'),
     'troll':             ('pics/troll1.png', 5, 30, ''),
     'troll_citizen':     ('pics/troll1.png', 5, 30, ''),
     'troll_guard':       ('pics/troll1.png', 5, 30, ''),
     'troll_king':        ('pics/troll1.png', 5, 30, 'force_wand'),
-    'troll_trader':      ('pics/troll1.png', 5, 30, ''),
     'troll_shaman':      ('pics/troll1.png', 5, 30, ''),
     'troll_necromancer': ('pics/troll1.png', 5, 30, ''),
-    'sack':              ('pics/sack.png', 0, 50, ''),
+    'dragon':            ('pics/dragon1.png', 5, 5000, 'fire_wand'),
+    'sack':              ('pics/sack.png', 0, 50, 'spear potion'),
     'barrel':            ('pics/barrel.png', 0, 500, ''),
     }
 
@@ -871,6 +1020,7 @@ def create_monster(level, name, x, y):
     m = Monster(pic)
     m.x = x
     m.y = y
+    m.name = name
 
     friends = 'citizen guard trader king shaman'.split()
     for f in friends:
@@ -878,11 +1028,16 @@ def create_monster(level, name, x, y):
             m.friendly = True
             m.nodam = True
 
-    if name in ('sack', 'barrel'):
+    if inv is None:
+        inv = mm[3]
+
+    if name.startswith('sack') or name.startswith('barrel'):
         m.friendly = True
         m.nodam = False
+        give_item(m, inv)
+        inv = ''
 
-    give_weapon(m, mm[3])
+    give_weapon(m, inv)
     m.speed = mm[1]
     m.hp = mm[2]
     m.facing = -1
@@ -890,29 +1045,119 @@ def create_monster(level, name, x, y):
     level.monsters.append(m)
     return m
 
+def start_mode_draw():
+    window.clear()
+    startsky.draw()
+
+    class T:
+        pos = 150
+        dpos = 50
+    t = T()
+    def d(text):
+        pyglet.text.Label(text, font_name=font_name,
+                          font_size=18, x=30, y=window.height - t.pos).draw()
+        t.pos += t.dpos
+    for s in ['Press O to start as an Orc',
+              'Press G to start as a Goblin',
+              'Press F1 to view controls',
+              'Press Esc to exit']:
+        d(s)
+
+def end_mode_draw():
+    window.clear()
+    startsky.draw()
+    pyglet.text.Label(end_text, font_name=font_name,
+                      font_size=28, x=50, y=window.height - 40).draw()
+    pyglet.text.Label(end_bottom_text, font_name=font_name,
+                      font_size=14, x=50, y=20).draw()
+
+    class T:
+      pos = 150
+      dpos = 50
+    t = T()
+    def d(text):
+      pyglet.text.Label(text, font_name=font_name,
+                        font_size=18, x=30, y=window.height - t.pos).draw()
+      t.pos += t.dpos
+    for s in ['orcs defeated: %d' % Stats.orcs,
+              'goblins defeated: %d' % Stats.goblins,
+              'trolls defeated: %d' % Stats.trolls,
+              'dragons defeated: %d' % Stats.dragons,
+              'sacks destroyed: %d' % Stats.sacks,
+              'restarts: %d' % Stats.restarts,]:
+      d(s)
+
+
+def controls_mode_draw():
+    window.clear()
+    startsky.draw()
+    class T:
+        pos = 150
+        dpos = 30
+    t = T()
+    def d(text):
+        pyglet.text.Label(text, font_name=font_name,
+                          font_size=18, x=30, y=window.height - t.pos).draw()
+        t.pos += t.dpos
+    for s in ['WSAD, Arrows - move',
+              'F,J - thrust weapon',
+              'V,K - swing weapon',
+              'E - pick up, use, travel',
+              'X - change weapon',
+              'G - drop weapon',
+              'Space - Jump',
+              'S+Space, Down+Space - Jump down'
+              'F1 - view controls',
+              'Esc - quit',
+              ]:
+        d(s)
+
+
+def load_mode_draw():
+    window.clear()
+    startsky.draw()
+    pyglet.text.Label(loading_text, font_name=font_name,
+                      font_size=18, x=30, y=window.height // 2).draw()
+
+    load_mode_action()
+
 @window.event
 def on_draw():
-    game_mode_draw()
+    global mode
+    if mode == 'game':
+        game_mode_draw()
+    elif mode == 'start':
+        start_mode_draw()
+    elif mode == 'controls':
+        controls_mode_draw()
+    elif mode == 'end':
+        end_mode_draw()
+    elif mode == 'load':
+        load_mode_draw()
 
+def start_game(race='orc'):
+    game.level = getmap('data/map1.json')
+    if race == 'orc':
+        game.player = Monster('pics/orc1.png')
+        game.player.right_hand = Item(ItemType.alltypes['sword'])
+        change_level('data/robbers.json', 'startgame')
+    elif race == 'goblin':
+        game.player = Monster('pics/goblin1.png')
+        game.player.inventory.append(Item(ItemType.alltypes['staff']))
+        change_level('data/goblincastle.json', 'startgame')
+    elif race == 'troll':
+        game.player = Monster('pics/troll1.png')
+        game.player.inventory.append(Item(ItemType.alltypes['staff']))
+        change_level('data/swamp.json', 'startgame')
 
 def main():
-    pyglet.clock.schedule_interval(phy, 1/60.0)
+    pyglet.clock.schedule_interval(on_timer, 1/60.0)
     pyglet.clock.set_fps_limit(60)
     init_item_types()
     init_projectiles()
-    game.level = getmap('data/map1.json')
-    #game.level = loadmap('data/rogues.json')
-    game.player = Monster('pics/orc1.png')
-    game.player.x = 300
-    game.player.y = 2200
-    game.player.right_hand = Item(ItemType.alltypes['sword'])
-    game.player.inventory.append(Item(ItemType.alltypes['staff']))
-    game.player.inventory.append(Item(ItemType.alltypes['dagger']))
-    game.player.inventory.append(Item(ItemType.alltypes['polearm']))
-    game.player.inventory.append(Item(ItemType.alltypes['spear']))
-    game.player.inventory.append(Item(ItemType.alltypes['axe']))
-    game.player.inventory.append(Item(ItemType.alltypes['force_wand']))
-    game.player.inventory.append(Item(ItemType.alltypes['ice_wand']))
-    game.player.inventory.append(Item(ItemType.alltypes['fire_wand']))
-    game.GTIEL = Tile('qwe','pics/orc1.png')
+    random_sky=random.choice(['sky/clouds.png', 'sky/forest.png'])
+    global startsky
+    startsky = pyglet.sprite.Sprite(pyglet.image.load(data.filepath(random_sky)), x=0, y=0)
     pyglet.app.run()
+
+

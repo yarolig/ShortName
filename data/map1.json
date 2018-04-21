@@ -439,6 +439,50 @@
                  "width":0,
                  "x":543,
                  "y":692
+                }, 
+                {
+                 "height":0,
+                 "id":50,
+                 "name":"goblin_necromancer",
+                 "point":true,
+                 "rotation":0,
+                 "type":"monster",
+                 "visible":true,
+                 "width":0,
+                 "x":1367,
+                 "y":949
+                }, 
+                {
+                 "height":0,
+                 "id":51,
+                 "name":"orc_necromancer",
+                 "point":true,
+                 "rotation":0,
+                 "type":"monster",
+                 "visible":true,
+                 "width":0,
+                 "x":2606,
+                 "y":993
+                }, 
+                {
+                 "height":0,
+                 "id":52,
+                 "name":"Troll's Swamp",
+                 "point":true,
+                 "properties":
+                    {
+                     "file":"data\/swamp.json"
+                    },
+                 "propertytypes":
+                    {
+                     "file":"string"
+                    },
+                 "rotation":0,
+                 "type":"travel",
+                 "visible":true,
+                 "width":0,
+                 "x":353.333333333333,
+                 "y":1078.66666666667
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -446,7 +490,7 @@
          "x":0,
          "y":0
         }],
- "nextobjectid":50,
+ "nextobjectid":53,
  "orientation":"orthogonal",
  "renderorder":"right-up",
  "tiledversion":"1.1.4",

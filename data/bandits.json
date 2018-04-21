@@ -35,6 +35,18 @@
                  "width":0,
                  "x":544,
                  "y":3086.66666666667
+                }, 
+                {
+                 "height":0,
+                 "id":3,
+                 "name":"startgame",
+                 "point":true,
+                 "rotation":0,
+                 "type":"entry",
+                 "visible":true,
+                 "width":0,
+                 "x":494,
+                 "y":2798
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -42,7 +54,7 @@
          "x":0,
          "y":0
         }],
- "nextobjectid":3,
+ "nextobjectid":4,
  "orientation":"orthogonal",
  "renderorder":"right-up",
  "tiledversion":"1.1.4",
