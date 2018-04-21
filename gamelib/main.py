@@ -527,7 +527,7 @@ label = pyglet.text.Label('100 hp',
                           x=10, y=10)
 roadsign = pyglet.text.Label('To forest',
                         font_name=font_name,
-                        font_size=26,
+                        font_size=22,
                         x=10, y=window.height - 50)
 
 roadsign_text = ''
@@ -546,8 +546,8 @@ class Stats:
 
 hintsign = pyglet.text.Label('Press E to win',
                         font_name=font_name,
-                        font_size=16,
-                        x=10, y=window.height - 120)
+                        font_size=14,
+                        x=8, y=window.height - 120)
 hintsign_text = ''
 
 startsky = None
