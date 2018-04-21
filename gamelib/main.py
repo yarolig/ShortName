@@ -993,7 +993,7 @@ def game_mode_draw():
     frameno += 1
     window.clear()
     game.level.sky.draw()
-    glPushMatrix(GL_MODELVIEW)
+    glPushMatrix()
     glTranslatef(window.width/2-game.player.x,
                  window.height/2-game.player.y,0)
     game.level.draw()
@@ -1012,7 +1012,7 @@ def game_mode_draw():
              abs(i.y - game.player.y) < window.height // 2 + 64):
                 i.draw(i.x, i.y, 90)
 
-    glPopMatrix(GL_MODELVIEW)
+    glPopMatrix()
     label.text = "%d HP, %d fps" % (game.player.hp, pyglet.clock.get_fps())
     label.draw()
     roadsign.text = roadsign_text
