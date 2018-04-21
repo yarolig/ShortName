@@ -195,7 +195,7 @@ def loadmap(fn):
     js= json.load(open(fn))
     w=int(js['width'])
     h=int(js['height'])
-    print 'wh:', w, h
+    #print 'wh:', w, h
     level = Level(w,h)
 
     dat = js['layers'][0]['data']
@@ -212,7 +212,7 @@ def loadmap(fn):
         level.sky = pyglet.sprite.Sprite(pyglet.image.load(data.filepath('sky/clouds.png')), x=0, y=0)
     i=0
     for n, tt in ts.items():
-        print tt, tp[n]
+        #print tt, tp[n]
         if i > 1000:
             t = Tile(tt['image'], '')
         else:
@@ -244,7 +244,7 @@ def loadmap(fn):
         i += 1
     object_layer = js['layers'][1]['objects']
     for o in object_layer:
-        print "o=", o
+        #print "o=", o
         if o['type'] == 'monster':
             props = o.get('properties') or {}
             inv = props.get('inv') or None
@@ -615,7 +615,7 @@ def process_input():
 last_level = ''
 last_entry = ''
 def change_level(name, entryname=None):
-    print 'change level to', name, entryname
+    #print 'change level to', name, entryname
     if not entryname:
         entryname = 'entry'
 
@@ -628,7 +628,7 @@ def change_level(name, entryname=None):
     game.player.hp = max(game.player.hp, game.player.maxhp)
     for o in level.places:
         if o.kind == Place.ENTRY:
-            print 'trying entries "%s" "%s"' % (o.value, entryname)
+            #print 'trying entries "%s" "%s"' % (o.value, entryname)
             if o.value == entryname:
                 game.player.x = o.x
                 game.player.y = o.y
@@ -716,7 +716,7 @@ def phym(monster):
             else:
                 continue
             if p.kind == Place.TRAVEL:
-                print 'change level!!', p.value, p.entry
+                #print 'change level!!', p.value, p.entry
                 if p.value:
                     change_level(p.value, p.entry)
                     return
@@ -1058,7 +1058,7 @@ def give_weapon(m, desc):
     m.right_hand = Item(it)
 
 def give_item(m, desc):
-    print 'give item', desc
+    #print 'give item', desc
     if not desc:
         return
     s = random.choice(desc.split())
@@ -1066,7 +1066,7 @@ def give_item(m, desc):
     m.inventory.append(Item(it))
 
 def create_monster(level, name, x, y, inv=None):
-    print 'create monster', name, x, y, inv
+    #print 'create monster', name, x, y, inv
     monsters= {
     'goblin':         ('pics/goblin1.png', 7, 30, 'staff'),
     #'goblin_citizen': ('pics/goblin1.png', 5, 30, ''),
