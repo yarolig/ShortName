@@ -305,8 +305,8 @@
                  "type":"travel",
                  "visible":true,
                  "width":0,
-                 "x":227,
-                 "y":879
+                 "x":292.333333333333,
+                 "y":881.666666666667
                 }, 
                 {
                  "height":0,
@@ -490,7 +490,7 @@
          "x":0,
          "y":0
         }],
- "nextobjectid":53,
+ "nextobjectid":54,
  "orientation":"orthogonal",
  "renderorder":"right-up",
  "tiledversion":"1.1.4",

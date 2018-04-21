@@ -135,6 +135,8 @@ class Place:
     label = ''
     value = ''
     entry = '' # entry name for changing levels
+    item = ''
+    responce = ''
 
 class Level:
     def __init__(self, tw, th):
@@ -256,6 +258,7 @@ def loadmap(fn):
             p.kind = p.TRAVEL
             p.label = o['name']
             p.value = o['properties']['file']
+            p.entry = o['properties'].get('entry') or 'entry'
             level.places.append(p)
         if o['type'] == 'label':
             p = Place()
@@ -271,7 +274,18 @@ def loadmap(fn):
             p.y = h*64-int(o['y'])
             p.kind = p.CHAT
             p.label = o['name']
-            level.places.append(p)
+
+            prp = o.get('properties') or {}
+            race = prp.get('tgt')
+            reject = False
+            if race == 'orc' and game.player.race == 'goblin':
+                reject = True
+            if race == 'goblin' and game.player.race == 'orc':
+                reject = True
+
+            p.item = prp.get('item')
+            if not reject:
+                level.places.append(p)
 
         if o['type'] == 'entry':
             p = Place()
@@ -279,6 +293,7 @@ def loadmap(fn):
             p.y = h*64-int(o['y'])
             p.kind = p.ENTRY
             p.value = o['name']
+            p.entry = o['name']
             level.places.append(p)
 
     return level
@@ -323,6 +338,9 @@ class WeaponAnim:
     'ice2':    [15, 32, 190,    2,  0,                  ['default']],
     'change':  [0, 22,  220,    8,  WeaponEffect(2),    []],
     'drop':    [0, 0,   360+90, 8,  WeaponEffect(6),    ['default']],
+    'axe':     [35, 32, -60,    6,  0,                  ['axe2']],
+    'axe2':    [15, 32, 100,    4,  WeaponEffect(1,10), ['axe3']],
+    'axe3':    [15, 32, 220,    4,  0,                  ['default']],
     }
     def __init__(self):
         self.src = 'default'
@@ -367,7 +385,7 @@ class WeaponAnim:
                 p.vx = m.facing * pt.speed
                 p.vy = 0
                 p.ttl = pt.ttl
-                print 'cast', d[effect.kind]
+                #print 'cast', d[effect.kind]
                 game.level.projectiles.append(p)
 
             if effect and effect.kind == 2:
@@ -394,7 +412,7 @@ class WeaponAnim:
                     if mm is m: continue
                     if mm.nodam: continue
                     hit = False
-                    ydist = 16
+                    ydist = 32
                     rhr = 0
                     hand_offset = 22
                     belly_offset = 18
@@ -403,7 +421,7 @@ class WeaponAnim:
                         rhr = m.right_hand.itemtype.reach
                         dam = m.right_hand.itemtype.damage
                     xdist = hand_offset + belly_offset + rhr + effect.reach
-                    print 'xdist=', xdist, hand_offset, rhr, effect.reach
+                    #print 'xdist=', xdist, hand_offset, rhr, effect.reach
                     if m.y - ydist <= mm.y <= m.y+ydist:
                         if m.facing == 1:
                             if m.x <= mm.x <= m.x + xdist:
@@ -435,6 +453,7 @@ class WeaponAnim:
 class Monster:
     def __init__(self, image_prefix):
         self.name = ''
+        self.race = ''
         self.hp = 100
         self.maxhp = 100
         self.friendly = False
@@ -514,6 +533,7 @@ roadsign = pyglet.text.Label('To forest',
 roadsign_text = ''
 mode = 'start'
 end_text = 'You are defeated.'
+end_text2 = ''
 end_bottom_text = 'Press Space to continue.'
 
 class Stats:
@@ -588,6 +608,10 @@ def process_input():
     if keys[key.G]:
         game.player.in_drop = True
 
+    if keys[key.F1]:
+        global mode
+        mode = 'controls'
+
 last_level = ''
 last_entry = ''
 def change_level(name, entryname=None):
@@ -604,10 +628,22 @@ def change_level(name, entryname=None):
     game.player.hp = max(game.player.hp, game.player.maxhp)
     for o in level.places:
         if o.kind == Place.ENTRY:
+            print 'trying entries "%s" "%s"' % (o.value, entryname)
             if o.value == entryname:
                 game.player.x = o.x
                 game.player.y = o.y
-                return
+                break
+    global mode
+    mode = 'load'
+    global load_mode_text
+    load_mode_text = 'Loading...'
+    global load_mode_action
+    def a():
+        global mode
+        mode = 'game'
+    load_mode_action = a
+
+
 
 def phym(monster):
     if True:
@@ -633,12 +669,45 @@ def phym(monster):
 
     if m is game.player:
         for p in game.level.places:
-            if p.kind in (Place.TRAVEL, Place.LABEL):
+            if p.kind in (Place.LABEL,):
                 if (p.x - m.x) ** 2 + (p.y - m.y) ** 2 < 48 ** 2:
                     roadsign_text = p.label
+            if p.kind in (Place.TRAVEL,):
+                if (p.x - m.x) ** 2 + (p.y - m.y) ** 2 < 48 ** 2:
+                    roadsign_text = "%s"  % p.label
+                    hintsign_text = "Press E to travel to %s (%s)" % (p.label, p.entry)
             if p.kind in (Place.CHAT,):
                 if (p.x - m.x) ** 2 + (p.y - m.y) ** 2 < 48 ** 2:
                     hintsign_text = p.label
+                    if p.item:
+                        if m.right_hand:
+                            if m.right_hand.itemtype.name == p.item:
+                                roadsign_text = 'Press E to win!'
+                                if m.in_use:
+                                    global mode
+                                    mode = 'end'
+                                    global end_text
+                                    end_text = 'Victory!'
+
+                                    global end_text2
+                                    end_text2 = p.responce
+
+                                    global startsky
+                                    skyname = ''
+
+                                    if p.item == 'axe':
+                                        skyname = 'sky/forest.png'
+                                    else:
+                                        skyname = 'sky/tower.png'
+                                    startsky = pyglet.sprite.Sprite(pyglet.image.load(data.filepath(skyname)), x=0, y=0)
+
+                                    global end_bottom_text
+                                    end_bottom_text = 'Press Esc to exit.'
+                                    return
+
+    for i in game.level.items:
+        if (i.x - m.x) ** 2 + (i.y - m.y) ** 2 < 48 ** 2:
+            hintsign_text = "Press E to pick up %s" % (i.itemtype.name.replace('_', ' '))
     if m.in_use:
         # pickup items, chat, change level
         for p in game.level.places:
@@ -655,8 +724,8 @@ def phym(monster):
             for i in game.level.items:
                 if (i.x - m.x) ** 2 + (i.y - m.y) ** 2 < 48 ** 2:
                     if i.itemtype.health_potion:
-                        m.hp += 100
                         m.maxhp += 10
+                        m.hp = min(m.maxhp, m.hp + 50)
                     else:
                         new_weapon = i
                         old_weapon = m.right_hand
@@ -861,7 +930,9 @@ def end_phy():
         change_level(last_level, last_entry)
 
 def controls_phy():
-    pass
+    global mode
+    if keys[key.SPACE]:
+        mode = 'game'
 
 dead_time = 0
 def phy(dt):
@@ -951,67 +1022,74 @@ def game_mode_draw():
 
 
 def init_item_types():
-    sword=ItemType('sword', 'pics/sword.png', 10, 47)
-    spear=ItemType('spear', 'pics/spear.png', 10, 59)
-    polearm=ItemType('polearm', 'pics/polearm.png', 10, 59)
-    staff=ItemType('staff', 'pics/staff.png', 5, 60)
-    dagger=ItemType('dagger', 'pics/dagger.png', 30, 16)
+    sword=ItemType('sword', 'pics/sword.png',       10, 47)
+    spear=ItemType('spear', 'pics/spear.png',       10, 59)
+    polearm=ItemType('polearm', 'pics/polearm.png', 25, 59)
+    staff=ItemType('staff', 'pics/staff.png',        5, 60)
+    dagger=ItemType('dagger', 'pics/dagger.png',    30, 16)
 
     fire_wand=ItemType('fire_wand', 'pics/fire_wand.png', 5, 45)
     fire_wand.attack2 = 'fire'
 
     ice_wand=ItemType('ice_wand', 'pics/ice_wand.png', 5, 45)
-    ice_wand.attack1 = 'ice'
+    ice_wand.attack2 = 'ice'
 
     force_wand=ItemType('force_wand', 'pics/force_wand.png', 15, 60)
-    force_wand.attack1 = 'force'
+    force_wand.attack2 = 'force'
 
-    axe=ItemType('axe', 'pics/axe.png', 30, 47)
+    axe=ItemType('axe', 'pics/axe.png',             50, 47)
+    axe.attack1 = 'axe'
+    axe.attack2 = 'axe'
 
-    potion = ItemType('potion', 'pics/potion.png', 30, 47)
+
+    potion = ItemType('potion', 'pics/potion.png',  30, 47)
     potion.health_potion = True
 
 def init_projectiles():
     fire = ProjectileType('fire', 'pics/fire.png',   damage=10, ttl=20,speed=18)
-    ice = ProjectileType('ice', 'pics/ice.png',      damage=10, ttl=50,speed=3)
-    force = ProjectileType('force', 'pics/force.png',damage=10, ttl=20,speed=10)
+    ice = ProjectileType('ice', 'pics/ice.png',      damage=20, ttl=300,speed=3)
+    force = ProjectileType('force', 'pics/force.png',damage=30, ttl=20,speed=10)
 
 def give_weapon(m, desc):
     if not desc:
         return
-    m.right_hand = Item(ItemType.alltypes[random.choice(desc.split())])
+    s = random.choice(desc.split())
+    it = ItemType.alltypes.get(s) or ItemType['dagger']
+    m.right_hand = Item(it)
 
 def give_item(m, desc):
     print 'give item', desc
     if not desc:
         return
-    m.inventory.append(Item(ItemType.alltypes[random.choice(desc.split())]))
+    s = random.choice(desc.split())
+    it = ItemType.alltypes.get(s) or ItemType['dagger']
+    m.inventory.append(Item(it))
 
 def create_monster(level, name, x, y, inv=None):
     print 'create monster', name, x, y, inv
     monsters= {
-    'goblin':         ('pics/goblin1.png', 5, 30, 'staff'),
-    'goblin_citizen': ('pics/goblin1.png', 5, 30, ''),
-    'goblin_guard':   ('pics/goblin1.png', 5, 30, 'spear polearm'),
-    'goblin_king':    ('pics/goblin1.png', 5, 30, 'force_wand'),
-    'goblin_rogue':   ('pics/goblin1.png', 5, 30, 'sword spear'),
-    'goblin_shaman':  ('pics/goblin1.png', 5, 30, 'ice_wand'),
-    'goblin_necromancer': ('pics/goblin1.png', 5, 30, 'dagger fire_wand'),
+    'goblin':         ('pics/goblin1.png', 7, 30, 'staff'),
+    #'goblin_citizen': ('pics/goblin1.png', 5, 30, ''),
+    'goblin_guard':   ('pics/goblin1.png', 6, 40, 'spear polearm axe'),
+    'goblin_king':    ('pics/goblin1.png', 4, 150, 'force_wand'),
+    'goblin_rogue':   ('pics/goblin1.png', 7, 30, 'sword spear'),
+    'goblin_shaman':  ('pics/goblin1.png', 2, 120, 'ice_wand'),
+    'goblin_necromancer': ('pics/goblin1.png', 9, 30, 'dagger fire_wand'),
     'orc':             ('pics/orc1.png', 5, 30, ''),
-    'orc_citizen':     ('pics/orc1.png', 5, 30, ''),
-    'orc_guard':       ('pics/orc1.png', 5, 30, 'spear polearm'),
-    'orc_king':        ('pics/orc1.png', 5, 30, 'force_wand'),
-    'orc_bandit':      ('pics/orc1.png', 5, 30, 'sword dagger'),
-    'orc_shaman':      ('pics/orc1.png', 5, 30, 'force_wand'),
-    'orc_necromancer': ('pics/orc1.png', 5, 30, 'staff ice_wand'),
-    'troll':             ('pics/troll1.png', 5, 30, ''),
-    'troll_citizen':     ('pics/troll1.png', 5, 30, ''),
-    'troll_guard':       ('pics/troll1.png', 5, 30, ''),
-    'troll_king':        ('pics/troll1.png', 5, 30, 'force_wand'),
-    'troll_shaman':      ('pics/troll1.png', 5, 30, ''),
-    'troll_necromancer': ('pics/troll1.png', 5, 30, ''),
-    'dragon':            ('pics/dragon1.png', 5, 5000, 'fire_wand'),
-    'sack':              ('pics/sack.png', 0, 50, 'spear potion'),
+    # 'orc_citizen':     ('pics/orc1.png', 5, 30, ''),
+    'orc_guard':       ('pics/orc1.png', 5, 100, 'spear polearm axe'),
+    'orc_king':        ('pics/orc1.png', 4, 150, 'force_wand'),
+    'orc_bandit':      ('pics/orc1.png', 5, 50, 'sword dagger'),
+    'orc_shaman':      ('pics/orc1.png', 5, 50, 'force_wand'),
+    'orc_necromancer': ('pics/orc1.png', 6, 40, 'staff fire_wand'),
+    #'troll':             ('pics/troll1.png', 5, 30, ''),
+    #'troll_citizen':     ('pics/troll1.png', 5, 30, ''),
+    'troll_guard':       ('pics/troll1.png', 5, 50, 'spear'),
+    'troll_king':        ('pics/troll1.png', 3, 200, 'force_wand'),
+    'troll_shaman':      ('pics/troll1.png', 5, 50, 'fire_wand'),
+    'troll_necromancer': ('pics/troll1.png', 5, 50, 'fire_wand'),
+    'dragon':            ('pics/dragon1.png', 5, 300, 'fire_wand'),
+    'sack':              ('pics/sack.png', 0, 50, 'spear potion potion potion'),
     'barrel':            ('pics/barrel.png', 0, 500, ''),
     }
 
@@ -1027,6 +1105,14 @@ def create_monster(level, name, x, y, inv=None):
         if name.endswith(f):
             m.friendly = True
             m.nodam = True
+    if game.player.race == 'goblin':
+        if name.startswith('orc'):
+            m.friendly = False
+            m.nodam = False
+    if game.player.race == 'orc':
+        if name.startswith('goblin'):
+            m.friendly = False
+            m.nodam = False
 
     if inv is None:
         inv = mm[3]
@@ -1067,13 +1153,13 @@ def end_mode_draw():
     window.clear()
     startsky.draw()
     pyglet.text.Label(end_text, font_name=font_name,
-                      font_size=28, x=50, y=window.height - 40).draw()
+                      font_size=28, x=window.width //2, y=window.height - 50, anchor_x='center').draw()
     pyglet.text.Label(end_bottom_text, font_name=font_name,
                       font_size=14, x=50, y=20).draw()
 
     class T:
-      pos = 150
-      dpos = 50
+      pos = 290
+      dpos = 30
     t = T()
     def d(text):
       pyglet.text.Label(text, font_name=font_name,
@@ -1092,7 +1178,7 @@ def controls_mode_draw():
     window.clear()
     startsky.draw()
     class T:
-        pos = 150
+        pos = 120
         dpos = 30
     t = T()
     def d(text):
@@ -1106,9 +1192,11 @@ def controls_mode_draw():
               'X - change weapon',
               'G - drop weapon',
               'Space - Jump',
-              'S+Space, Down+Space - Jump down'
+              'S+Space, Down+Space - Jump down',
               'F1 - view controls',
               'Esc - quit',
+              '',
+              'Press Space to continue',
               ]:
         d(s)
 
@@ -1116,7 +1204,7 @@ def controls_mode_draw():
 def load_mode_draw():
     window.clear()
     startsky.draw()
-    pyglet.text.Label(loading_text, font_name=font_name,
+    pyglet.text.Label(load_mode_text, font_name=font_name,
                       font_size=18, x=30, y=window.height // 2).draw()
 
     load_mode_action()
@@ -1139,15 +1227,18 @@ def start_game(race='orc'):
     game.level = getmap('data/map1.json')
     if race == 'orc':
         game.player = Monster('pics/orc1.png')
+        game.player.race = race
         game.player.right_hand = Item(ItemType.alltypes['sword'])
-        change_level('data/robbers.json', 'startgame')
+        change_level('data/orctown.json', 'startgame')
     elif race == 'goblin':
         game.player = Monster('pics/goblin1.png')
-        game.player.inventory.append(Item(ItemType.alltypes['staff']))
-        change_level('data/goblincastle.json', 'startgame')
+        game.player.race = race
+        game.player.right_hand = Item(ItemType.alltypes['staff'])
+        change_level('data/goblintown.json', 'startgame')
     elif race == 'troll':
         game.player = Monster('pics/troll1.png')
-        game.player.inventory.append(Item(ItemType.alltypes['staff']))
+        game.player.race = race
+        game.player.right_hand = Item(ItemType.alltypes['staff'])
         change_level('data/swamp.json', 'startgame')
 
 def main():

@@ -45,12 +45,14 @@
                     {
                      "item":"ice_wand",
                      "quest":"shaman",
+                     "responce":"",
                      "tgt":"orc"
                     },
                  "propertytypes":
                     {
                      "item":"string",
                      "quest":"string",
+                     "responce":"string",
                      "tgt":"string"
                     },
                  "rotation":0,
@@ -541,7 +543,7 @@
                 {
                  "height":0,
                  "id":44,
-                 "name":"Robbers's Road",
+                 "name":"Orctown",
                  "point":true,
                  "properties":
                     {
@@ -557,8 +559,8 @@
                  "type":"travel",
                  "visible":true,
                  "width":0,
-                 "x":360,
-                 "y":2846
+                 "x":350.666666666667,
+                 "y":2860.66666666667
                 }, 
                 {
                  "height":0,
@@ -571,6 +573,62 @@
                  "width":0,
                  "x":348,
                  "y":2366
+                }, 
+                {
+                 "height":0,
+                 "id":46,
+                 "name":"sack",
+                 "point":true,
+                 "rotation":0,
+                 "type":"monster",
+                 "visible":true,
+                 "width":0,
+                 "x":3868,
+                 "y":2374
+                }, 
+                {
+                 "height":0,
+                 "id":47,
+                 "name":"sack",
+                 "point":true,
+                 "rotation":0,
+                 "type":"monster",
+                 "visible":true,
+                 "width":0,
+                 "x":3868,
+                 "y":2612
+                }, 
+                {
+                 "height":0,
+                 "id":48,
+                 "name":"sack",
+                 "point":true,
+                 "properties":
+                    {
+                     "inv":"axe"
+                    },
+                 "propertytypes":
+                    {
+                     "inv":"string"
+                    },
+                 "rotation":0,
+                 "type":"monster",
+                 "visible":true,
+                 "width":0,
+                 "x":7396,
+                 "y":548
+                }, 
+                {
+                 "height":0,
+                 "id":49,
+                 "name":"sack",
+                 "point":true,
+                 "rotation":0,
+                 "type":"monster",
+                 "visible":true,
+                 "width":0,
+                 "x":7020,
+                 "y":792
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -578,7 +636,7 @@
          "x":0,
          "y":0
         }],
- "nextobjectid":46,
+ "nextobjectid":50,
  "orientation":"orthogonal",
  "renderorder":"right-up",
  "tiledversion":"1.1.4",
