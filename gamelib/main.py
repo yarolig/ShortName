@@ -1233,7 +1233,7 @@ def start_game(race='orc'):
     elif race == 'goblin':
         game.player = Monster('pics/goblin1.png')
         game.player.race = race
-        game.player.right_hand = Item(ItemType.alltypes['staff'])
+        game.player.right_hand = Item(ItemType.alltypes['dagger'])
         change_level('data/goblintown.json', 'startgame')
     elif race == 'troll':
         game.player = Monster('pics/troll1.png')
