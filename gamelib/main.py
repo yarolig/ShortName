@@ -1013,7 +1013,8 @@ def game_mode_draw():
                 i.draw(i.x, i.y, 90)
 
     glPopMatrix()
-    label.text = "%d HP, %d fps" % (game.player.hp, pyglet.clock.get_fps())
+    #label.text = "%d HP, %d fps" % (game.player.hp, pyglet.clock.get_fps())
+    label.text = "%d HP" % (game.player.hp)
     label.draw()
     roadsign.text = roadsign_text
     roadsign.draw()
