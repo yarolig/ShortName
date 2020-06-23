@@ -532,6 +532,7 @@ roadsign = pyglet.text.Label('To forest',
 
 roadsign_text = ''
 mode = 'start'
+previous_mode = 'start'
 end_text = 'You are defeated.'
 end_text2 = ''
 end_bottom_text = 'Press Space to continue.'
@@ -609,8 +610,10 @@ def process_input():
         game.player.in_drop = True
 
     if keys[key.F1]:
-        global mode
-        mode = 'controls'
+        global mode, previous_mode
+        if mode in ('start', 'game'):
+            previous_mode = mode
+            mode = 'controls'
 
 last_level = ''
 last_entry = ''
@@ -920,7 +923,7 @@ def start_phy():
         mode = 'game'
         start_game('troll')
     if keys[key.F1]:
-        game.player.in_use = True
+        mode = 'controls'
 
 def end_phy():
     global mode
@@ -930,9 +933,9 @@ def end_phy():
         change_level(last_level, last_entry)
 
 def controls_phy():
-    global mode
+    global mode, previous_mode
     if keys[key.SPACE]:
-        mode = 'game'
+        mode = previous_mode
 
 dead_time = 0
 def phy(dt):
@@ -1187,8 +1190,8 @@ def controls_mode_draw():
                           font_size=18, x=30, y=window.height - t.pos).draw()
         t.pos += t.dpos
     for s in ['WSAD, Arrows - move',
-              'F,J - thrust weapon',
-              'V,K - swing weapon',
+              'F,K - thrust weapon',
+              'V,J - swing weapon',
               'E - pick up, use, travel',
               'X - change weapon',
               'G - drop weapon',
