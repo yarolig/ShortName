@@ -3,13 +3,12 @@
 if 0:
     # PyInstaller workaround
     # https://github.com/pyinstaller/pyinstaller/issues/2820
-    import UserList
-    import UserString
+    import collections
     import UserDict
     import itertools
     import collections
     import future.backports.misc
-    import commands
+    import subprocess
     import base64
     import __buildin__
     import math

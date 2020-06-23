@@ -1,4 +1,4 @@
-import data
+from . import data
 import pyglet
 from pyglet.window import key, mouse
 import random
@@ -9,8 +9,8 @@ from pyglet.gl import *
 keys = key.KeyStateHandler()
 
 def xyrange(w,h):
-    for x in xrange(w):
-        for y in xrange(h):
+    for x in range(w):
+        for y in range(h):
             yield x, y
 
 frameno = 0
@@ -102,7 +102,7 @@ class ProjectileType:
     def get(cls, name):
         result = cls.alltypes.get(name)
         if not result:
-            print name, cls.alltypes
+            print(name, cls.alltypes)
         return result
 
 class Projectile:
@@ -140,7 +140,7 @@ class Place:
 
 class Level:
     def __init__(self, tw, th):
-        self.tiles = [Tile('air','') for i in xrange(tw*th)]
+        self.tiles = [Tile('air','') for i in range(tw*th)]
         self.tw=tw
         self.th=th
         self.monsters=[]
@@ -160,8 +160,8 @@ class Level:
         if 0 <= tx < self.tw and 0 <= ty < self.th:
             self.tiles[tx+self.tw*ty] = t
     def get_tx_ty_tile_at(self,mx,my):
-        tx = mx / 64
-        ty = my / 64
+        tx = mx // 64
+        ty = my // 64
         t = self.tile(tx, ty)
         return (tx, ty, t)
 
@@ -211,7 +211,7 @@ def loadmap(fn):
         assert 'no sky file'
         level.sky = pyglet.sprite.Sprite(pyglet.image.load(data.filepath('sky/clouds.png')), x=0, y=0)
     i=0
-    for n, tt in ts.items():
+    for n, tt in list(ts.items()):
         #print tt, tp[n]
         if i > 1000:
             t = Tile(tt['image'], '')
@@ -350,10 +350,10 @@ class WeaponAnim:
         self.state = WeaponAnim.states['default'][:]
 
     def prn(self):
-        print "WA: src=%s tgt=%s t=(%s/%s) s=%s" % (
+        print("WA: src=%s tgt=%s t=(%s/%s) s=%s" % (
                 self.src, self.tgt,
                 self.time_left, self.time_total,
-                ",".join(str(s) for s in self.state))
+                ",".join(str(s) for s in self.state)))
     def draw(self, m):
         if m.right_hand is None:
             return
@@ -566,14 +566,14 @@ def make_levelA():
         level.set_tile(x,y, grass)
 
     def add_platorm(px,py,pl):
-        for l in xrange(pl):
+        for l in range(pl):
             level.set_tile(px+l,py, stone)
 
     add_platorm(0,1,100)
     add_platorm(5,6,8)
     add_platorm(2,8,3)
 
-    for platform in xrange(20):
+    for platform in range(20):
         px=random.randint(1,w-1)
         py=random.randint(1,h-1)
         pl=random.randint(2,5)
@@ -819,7 +819,7 @@ def phym(monster):
             m.vx = 0
             m.y = m.y + m.vy
             return
-        m.vy /= 2
+        m.vy //= 2
 
 
 def aim(m):
@@ -1244,7 +1244,7 @@ def start_game(race='orc'):
 
 def main():
     pyglet.clock.schedule_interval(on_timer, 1/60.0)
-    pyglet.clock.set_fps_limit(60)
+    #pyglet.clock.set_fps_limit(60)
     init_item_types()
     init_projectiles()
     random_sky=random.choice(['sky/clouds.png', 'sky/forest.png'])
