@@ -38,8 +38,8 @@ Help him to start a war! Or do something else.
 HOW TO PLAY THE GAME:
 
 WSAD, Arrows - move
-F,J          - thrust weapon
-V,K          - swing weapon
+F,K          - thrust weapon
+V,J          - swing weapon
 E            - pick up, use, travel
 X            - change weapon
 G            - drop weapon
