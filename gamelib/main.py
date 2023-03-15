@@ -408,7 +408,7 @@ class WeaponAnim:
                 m.right_hand = new_weapon
 
             if effect and effect.kind == 1:
-                for mm in game.level.enum_monsters():
+                for mm in game.enum_monsters():
                     if mm is m: continue
                     if mm.nodam: continue
                     hit = False
@@ -516,6 +516,10 @@ class Game:
     level = Level(2,2)
     keys = {}
     player = Monster('pics/orc1.png')
+    def enum_monsters(self):
+        yield self.player
+        for i in self.level.monsters:
+            yield i
 
 window = pyglet.window.Window()
 game = Game()
@@ -872,7 +876,7 @@ def phyp(projectile):
     projectile.x += projectile.vx
     projectile.y += projectile.vy
 
-    for mm in game.level.enum_monsters():
+    for mm in game.enum_monsters():
         if mm.nodam: continue
         hit = False
         ydist = 32
