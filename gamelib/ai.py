@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # coding: utf-8
 from gamelib.common import game
+from gamelib.monster import Monster
 
-
-def aim(m):
+def aim(m : Monster):
     m.reset_input()
     if m.friendly:
         return
@@ -31,8 +31,12 @@ def aim(m):
     if game().player.x - closing_dist > m.x:
         m.in_d = True
 
-    if good_facing and player_sdist_sq < (closing_dist * 2) ** 2:
+    if game().player.y > m.y + 32 and player_sdist_sq > 64 ** 2:
+        m.in_jump = True
+
+    if good_facing and player_sdist_sq < (closing_dist * 2) ** 2 and game().player.y + 64 > m.y:
         m.in_thrust = True
+
     if not good_facing:
         if m.facing == 1:
             m.in_a = True

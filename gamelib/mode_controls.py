@@ -3,6 +3,7 @@
 import pyglet
 from pyglet.window import key
 
+import gamelib.input
 from gamelib.common import game
 from gamelib.sky import startsky
 from gamelib.ui import window, font_name, keys
@@ -36,5 +37,5 @@ def controls_mode_draw():
 
 
 def controls_phy():
-    if keys[key.SPACE]:
+    if keys[key.SPACE] or gamelib.input.jh.keys[1]:
         game().mode = game().previous_mode

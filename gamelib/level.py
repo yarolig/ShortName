@@ -251,7 +251,7 @@ def create_monster(level, name, x, y, inv=None):
     'goblin_necromancer': ('pics/goblin1.png', 9, 30, 'dagger fire_wand'),
     'orc':             ('pics/orc1.png', 5, 30, ''),
     # 'orc_citizen':     ('pics/orc1.png', 5, 30, ''),
-    'orc_guard':       ('pics/orc1.png', 5, 100, 'spear polearm axe'),
+    'orc_guard':       ('pics/orc1.png', 5, 100, 'sword polearm axe'),
     'orc_king':        ('pics/orc1.png', 4, 150, 'force_wand'),
     'orc_bandit':      ('pics/orc1.png', 5, 50, 'sword dagger'),
     'orc_shaman':      ('pics/orc1.png', 5, 50, 'force_wand'),
@@ -275,6 +275,9 @@ def create_monster(level, name, x, y, inv=None):
     m.name = name
 
     friends = 'citizen guard trader king shaman'.split()
+    if game().player.race == 'dragon':
+        friends = []
+
     for f in friends:
         if name.endswith(f):
             m.friendly = True
@@ -312,6 +315,7 @@ def give_weapon(m, desc):
     s = random.choice(desc.split())
     it = ItemType.alltypes.get(s) or ItemType['dagger']
     m.right_hand = Item(it)
+    m.weapon_anim.update_grip(m)
 
 
 def give_item(m, desc):

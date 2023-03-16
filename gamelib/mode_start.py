@@ -19,6 +19,11 @@ def start_phy():
     if keys[key.T]:
         game().mode = 'game'
         start_game('troll')
+
+    if keys[key.D]:
+        game().mode = 'game'
+        start_game('dragon')
+
     if keys[key.F1]:
         game().mode = 'controls'
 

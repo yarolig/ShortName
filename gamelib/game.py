@@ -52,7 +52,15 @@ def start_game(race='orc'):
         game().player.race = race
         game().player.right_hand = Item(ItemType.alltypes['staff'])
         change_level('data/swamp.json', 'startgame')
+    elif race == 'dragon':
+        game().player = Monster('pics/dragon1.png')
+        game().player.race = race
+        game().player.right_hand = Item(ItemType.alltypes['fire_wand'])
+        game().player.hp = 300
+        game().player.maxhp = 300
+        game().player.jump_speed = 18
 
+        change_level('data/swamp.json', 'startgame')
 
 dead_time = 0
 

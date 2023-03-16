@@ -193,6 +193,8 @@ def phym(monster):
         if newt.solid in (MAGMA, AIR, PLATFORM, LADDER):
             m.x = m.x + m.vx
             m.y = m.y + m.vy
+            if not (m.in_jump or m.in_w) and newt.solid in (PLATFORM, LADDER):
+                m.vy //= 2
             return
 
     (newx, newy, newt) = game().level.get_tx_ty_tile_at(m.x,
@@ -203,6 +205,8 @@ def phym(monster):
             m.x = m.x
             m.vx = 0
             m.y = m.y + m.vy
+            if not (m.in_jump or m.in_w) and newt.solid in (PLATFORM, LADDER):
+                m.vy //= 2
             return
         m.vy //= 2
 

@@ -29,6 +29,7 @@ class WeaponAnim:
     HIT = 4
     NEXT = 5
     DROP = 6
+    grip = 'default'
     states = {
     #           x*f y   angle  time effect next
     'default': [25, 32, 0,      12, 0,                  []],
@@ -48,11 +49,11 @@ class WeaponAnim:
     'axe2':    [15, 32, 100,    4,  WeaponEffect(1,10), ['axe3']],
     'axe3':    [15, 32, 220,    4,  0,                  ['default']],
 
-    #'staff_default': [25, 12, 0,      12, 0,                  []],
-    #'staff_thrust':  [15, 22, 105,    8,  WeaponEffect(1,20), ['staff_thrust2']],
-    #'staff_thrust2': [45, 32, 90,     2,  0,                  ['staff_default']],
-    #'staff_chop':    [35, 24, 100,    2,  WeaponEffect(1,10), ['staff_chop2']],
-    #'staff_chop2':   [15, 32, 190,    2,  0,                  ['default']],
+    'staff_default': [25, 12, 0,      12, 0,                  []],
+    'staff_thrust':  [15, 32, 105,    8,  WeaponEffect(1,20), ['staff_thrust2']],
+    'staff_thrust2': [45, 32, 90,     2,  0,                  ['staff_default']],
+    'staff_chop':    [35, 24, 100,    2,  WeaponEffect(1,10), ['staff_chop2']],
+    'staff_chop2':   [15, 32, 190,    2,  0,                  ['default']],
     }
     def __init__(self):
         self.src = 'default'
@@ -73,6 +74,11 @@ class WeaponAnim:
             sx=m.x + self.state[self.XF] * m.facing,
             sy=m.y + self.state[self.Y],
             angle=self.state[self.ANGLE] * m.facing)
+
+    def update_grip(self, m):
+        if m.right_hand is None:
+            return
+        self.state = WeaponAnim.states[m.right_hand.itemtype.grip][:]
 
     def update(self, m):
         if self.time_left == 0:

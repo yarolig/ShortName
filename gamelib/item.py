@@ -29,6 +29,7 @@ class ItemType:
         self.name = name
         self.damage = damage
         self.reach = reach
+        self.grip = 'default'
         self.attack1 = 'thrust'
         self.attack2 = 'chop'
         self.health_potion = False
@@ -49,11 +50,16 @@ class ItemType:
 
 def init_item_types():
     sword= ItemType('sword', 'pics/sword.png', 10, 47)
+    sword.grip = 'change'
     spear= ItemType('spear', 'pics/spear.png', 10, 59)
+    spear.grip = 'staff_default'
     polearm= ItemType('polearm', 'pics/polearm.png', 25, 59)
+    polearm.grip = 'staff_default'
+
     staff= ItemType('staff', 'pics/staff.png', 5, 60)
-    #staff.attack1 = 'staff_chop'
-    #staff.attack2 = 'staff_thrust'
+    staff.grip = 'staff_default'
+    staff.attack1 = 'staff_chop'
+    staff.attack2 = 'staff_thrust'
 
     dagger= ItemType('dagger', 'pics/dagger.png', 30, 16)
 
@@ -65,11 +71,12 @@ def init_item_types():
 
     force_wand= ItemType('force_wand', 'pics/force_wand.png', 15, 60)
     force_wand.attack2 = 'force'
+    force_wand.grip = 'staff_default'
 
     axe= ItemType('axe', 'pics/axe.png', 50, 47)
     axe.attack1 = 'axe'
     axe.attack2 = 'axe'
-
+    axe.grip = 'staff_default'
 
     potion = ItemType('potion', 'pics/potion.png', 30, 47)
     potion.health_potion = True
